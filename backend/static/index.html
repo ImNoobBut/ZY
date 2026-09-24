@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zy Sleep Admin</title>
+  <style>
+    :root {
+      --bg: #0f1424;
+      --card: rgba(255,255,255,0.08);
+      --text: rgba(255,255,255,0.95);
+      --muted: rgba(255,255,255,0.55);
+      --accent: #8c7ae6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #0f1424 0%, #1a1830 100%);
+      padding: 24px;
+    }
+    main { max-width: 520px; margin: 0 auto; }
+    h1 { font-weight: 600; font-size: 1.75rem; margin: 0 0 8px; }
+    p.lead { color: var(--muted); margin: 0 0 24px; line-height: 1.45; }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button.secondary { background: transparent; border: 1.5px solid var(--accent); margin-top: 8px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .row:last-child { border-bottom: 0; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .warn { color: #e8b4b8; font-size: 0.85rem; margin-top: 12px; }
+    .error { color: #f07a7a; margin-top: 8px; }
+    .ok { color: #9ad4b1; margin-top: 8px; }
+    code { font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Zy Sleep Admin</h1>
+    <p class="lead">Enter the pairing code from Zy’s iPhone (Settings → Admin). Status is approximate — it may be delayed when the app is not running.</p>
+
+    <section class="card" id="pair-card">
+      <label for="code">Pairing code</label>
+      <input id="code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+      <button id="pair-btn" type="button">Pair</button>
+      <p id="pair-msg" class="error" hidden></p>
+    </section>
+
+    <section class="card" id="status-card" hidden>
+      <div class="row"><span class="muted">Routine</span><strong id="routine">—</strong></div>
+      <div class="row"><span class="muted">Battery</span><strong id="battery">—</strong></div>
+      <div class="row"><span class="muted">Charging</span><strong id="charging">—</strong></div>
+      <div class="row"><span class="muted">Spotify</span><strong id="spotify">—</strong></div>
+      <div class="row"><span class="muted">Alarm</span><strong id="alarm">—</strong></div>
+      <div class="row"><span class="muted">App audio</span><strong id="audio">—</strong></div>
+      <div class="row"><span class="muted">Last updated</span><strong id="updated">—</strong></div>
+      <p class="warn">Status may be delayed when the app is not running.</p>
+      <button class="secondary" id="refresh-btn" type="button">Refresh</button>
+      <p id="status-msg" class="ok" hidden></p>
+    </section>
+  </main>
+  <script>
+    const storageKey = "zyAdminSession";
+    let session = JSON.parse(localStorage.getItem(storageKey) || "null");
+
+    const pairCard = document.getElementById("pair-card");
+    const statusCard = document.getElementById("status-card");
+    const pairMsg = document.getElementById("pair-msg");
+    const statusMsg = document.getElementById("status-msg");
+
+    function show(el, text, cls) {
+      el.hidden = !text;
+      el.textContent = text || "";
+      el.className = cls || "";
+    }
+
+    async function pair() {
+      const code = document.getElementById("code").value.trim();
+      show(pairMsg, "", "error");
+      try {
+        const res = await fetch("/v1/admin/pair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pairingCode: code })
+        });
+        if (!res.ok) throw new Error("Pairing failed. Check the code and try again.");
+        session = await res.json();
+        localStorage.setItem(storageKey, JSON.stringify(session));
+        await loadStatus();
+      } catch (e) {
+        show(pairMsg, e.message || "Pairing failed", "error");
+      }
+    }
+
+    async function loadStatus() {
+      if (!session) return;
+      pairCard.hidden = true;
+      statusCard.hidden = false;
+      show(statusMsg, "", "ok");
+      try {
+        const res = await fetch(`/v1/devices/${session.deviceId}/status`, {
+          headers: { Authorization: `Bearer ${session.adminToken}` }
+        });
+        if (res.status === 404) {
+          show(statusMsg, "Paired, but Zy hasn’t checked in yet. Ask them to open the app.", "warn");
+          return;
+        }
+        if (!res.ok) throw new Error("Could not load status.");
+        const data = await res.json();
+        const s = data.deviceStatus;
+        document.getElementById("routine").textContent = s.routineActive ? "Active" : "Idle";
+        document.getElementById("battery").textContent =
+          s.batteryLevel == null ? "—" : `${Math.round(s.batteryLevel * 100)}%`;
+        document.getElementById("charging").textContent =
+          s.isCharging == null ? "—" : (s.isCharging ? "Yes" : "No");
+        document.getElementById("spotify").textContent = s.spotifyConnected ? "Connected" : "Not connected";
+        document.getElementById("alarm").textContent = s.alarmEnabled ? "On" : "Off";
+        document.getElementById("audio").textContent = s.isPlayingOwnAudio ? "Playing" : "Stopped";
+        document.getElementById("updated").textContent = s.lastCheckIn
+          ? new Date(s.lastCheckIn).toLocaleString()
+          : "—";
+        show(statusMsg, "Updated", "ok");
+      } catch (e) {
+        show(statusMsg, e.message || "Load failed", "error");
+      }
+    }
+
+    document.getElementById("pair-btn").addEventListener("click", pair);
+    document.getElementById("refresh-btn").addEventListener("click", loadStatus);
+    if (session) loadStatus();
+  </script>
+</body>
+</html>

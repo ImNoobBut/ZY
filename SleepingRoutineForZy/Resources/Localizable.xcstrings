@@ -1,0 +1,181 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "tab.home" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } }
+      }
+    },
+    "tab.sleep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sleep" } }
+      }
+    },
+    "tab.alarms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Alarms" } }
+      }
+    },
+    "tab.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } }
+      }
+    },
+    "home.greeting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Good evening, Zy" } }
+      }
+    },
+    "home.tonight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tonight" } }
+      }
+    },
+    "home.routine" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sleep routine" } }
+      }
+    },
+    "home.routine.ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ready" } }
+      }
+    },
+    "settings.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } }
+      }
+    },
+    "settings.admin" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Admin" } }
+      }
+    },
+    "admin.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Admin" } }
+      }
+    },
+    "admin.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote Admin monitoring will use an authenticated backend. Only opted-in status is shared. Local PIN and dashboard arrive in Phase 7."
+          }
+        }
+      }
+    },
+    "onboarding.welcome.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep better with a simple routine."
+          }
+        }
+      }
+    },
+    "onboarding.welcome.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set your music, sleep timer, and alarm in one place."
+          }
+        }
+      }
+    },
+    "onboarding.notifications.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Stay on schedule" } }
+      }
+    },
+    "onboarding.notifications.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications allow your alarms and sleep reminders to work."
+          }
+        }
+      }
+    },
+    "onboarding.notifications.enable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enable notifications" } }
+      }
+    },
+    "onboarding.spotify.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music for bedtime" } }
+      }
+    },
+    "onboarding.spotify.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Spotify to choose what you listen to before sleeping."
+          }
+        }
+      }
+    },
+    "onboarding.spotify.connect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect Spotify" } }
+      }
+    },
+    "onboarding.spotify.skip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skip for now" } }
+      }
+    },
+    "onboarding.preferences.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your routine" } }
+      }
+    },
+    "onboarding.continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } }
+      }
+    },
+    "onboarding.back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back" } }
+      }
+    },
+    "onboarding.start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start my routine" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

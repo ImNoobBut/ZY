@@ -1,0 +1,39 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
+
+# CocoaPods / Carthage / SPM
+Pods/
+Carthage/Build/
+.swiftpm/
+Package.resolved
+
+# Secrets — never commit real credentials
+Config/Secrets.xcconfig
+*.secret
+.env
+.env.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDEs
+.idea/
+*.swp
+*~
+
+# Backend (future)
+backend/node_modules/
+backend/.env
+backend/dist/

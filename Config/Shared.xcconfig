@@ -1,0 +1,4 @@
+// Shared non-secret build settings. Override secrets via Secrets.xcconfig (gitignored).
+SPOTIFY_CLIENT_ID =
+SPOTIFY_REDIRECT_URI = sleepingroutineforzy://spotify-callback
+BACKEND_BASE_URL = http://127.0.0.1:8080
