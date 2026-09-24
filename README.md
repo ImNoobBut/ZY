@@ -205,25 +205,17 @@ Not applicable in Phase 1. Later:
 ## Project Structure
 
 ```
-SleepingRoutineForZy/
-  App/                 # App entry, AppState, AppEnvironment, RootView
-  Core/                # Models, Services, Repositories, Persistence, Security, Networking
-  Features/            # Home, SleepTimer, Alarms, Settings, Spotify, Onboarding, Admin
-...
-backend/               # Phase 7 Remote Admin API + guardian dashboard
-  UI/                  # Theme, components, extensions
-  Resources/           # Assets, Info.plist, Localizable.xcstrings
-SleepingRoutineForZyTests/
-SleepingRoutineForZyUITests/
-Config/                # xcconfig (secrets gitignored)
-project.yml            # XcodeGen spec (optional regenerate)
+SleepingRoutineForZy/     # Native Swift iOS app (source of truth for iPhone)
+flutter_app/              # Flutter Android + Web port (Windows testing)
+backend/                  # Remote Admin API + guardian dashboard
+Config/                   # xcconfig (secrets gitignored)
 ```
 
 ## Phase status / next
 
-Phases 1–7 are implemented (foundation through Remote Admin).
+Phases 1–7 are implemented in the **Swift iOS** app. A parallel **Flutter (Android + Web)** port lives in `flutter_app/` for Windows testing (Chrome / Android emulator). It does not replace the iOS project.
 
-**Next instruction:** implement **Phase 8 — Privacy / security audit** (review Keychain usage, opt-in surfaces, ATS, secrets hygiene, nutrition-label notes).
+**Next instruction:** implement **Phase 8 — Privacy / security audit**, or continue Flutter polish.
 
 ## Architecture notes
 

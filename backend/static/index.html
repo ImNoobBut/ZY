@@ -65,7 +65,7 @@
 <body>
   <main>
     <h1>Zy Sleep Admin</h1>
-    <p class="lead">Enter the pairing code from Zy’s iPhone (Settings → Admin). Status is approximate — it may be delayed when the app is not running.</p>
+    <p class="lead">Enter the <strong>6-digit pairing code</strong> from Zy’s app (Settings → Admin → turn on sharing). Do <em>not</em> use your Admin PIN.</p>
 
     <section class="card" id="pair-card">
       <label for="code">Pairing code</label>
@@ -111,7 +111,14 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pairingCode: code })
         });
-        if (!res.ok) throw new Error("Pairing failed. Check the code and try again.");
+        if (!res.ok) {
+          let detail = "Pairing failed. Check the code and try again.";
+          try {
+            const err = JSON.parse(await res.text());
+            if (err.detail) detail = err.detail;
+          } catch (_) {}
+          throw new Error(detail);
+        }
         session = await res.json();
         localStorage.setItem(storageKey, JSON.stringify(session));
         await loadStatus();
