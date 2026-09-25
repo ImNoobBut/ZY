@@ -48,7 +48,7 @@ enum AlarmNotificationBuilder {
             : alarm.label
         content.body = String(
             localized: "alarm.notification.body",
-            defaultValue: "It’s time to wake up. This reminder uses an iOS notification, not Apple Clock."
+            defaultValue: "It’s time to wake up."
         )
         content.sound = sound(for: alarm.sound)
         content.categoryIdentifier = AlarmNotificationCategory.alarm

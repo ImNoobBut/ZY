@@ -17,17 +17,20 @@ This repository currently contains **Phase 7 — Remote Admin**: opt-in HTTPS ch
 | Onboarding | Phase 2 complete |
 | Home routine UX | Phase 3 complete |
 | Sleep timer UI | Phase 3 complete |
-| Local notification alarms | Phase 4 complete |
+| Local notification alarms | Phase 4 complete (fallback on older iOS) |
+| AlarmKit wake alarms (iOS 26+) | MVP complete |
 | App-owned audio + AVAudioSession | Phase 5 complete |
 | Spotify OAuth PKCE + Web API playback | Phase 6 complete |
 | Remote Admin backend + check-in | Phase 7 complete |
+| Flutter Android exact alarms + Spotify deep link | MVP complete |
+| Flutter web best-effort reminders | MVP complete |
 | Privacy / security audit | Phase 8 |
 | Full device test matrix | Phase 9 |
 
 ## Requirements
 
-- macOS with **Xcode 15+** (iOS 17 SDK)
-- iOS **17.0+** deployment target
+- macOS with **Xcode 26+** recommended for AlarmKit (iOS 26 SDK); Xcode 15+ still builds the notification fallback path
+- iOS **17.0+** deployment target (AlarmKit used at runtime on iOS 26+)
 - Apple Developer account for device installs
 - (Required for Spotify) Spotify Developer app Client ID
 - (Required for Remote Admin) Backend at `BACKEND_BASE_URL` (see `backend/`)
@@ -162,19 +165,37 @@ The app collects only what is needed for the sleep routine and **opted-in** remo
 
 | Topic | Limitation |
 |-------|------------|
-| Alarms | Third-party apps use `UNUserNotificationCenter`. They are **not** equivalent to Apple Clock. Delivery depends on notification permission and system behavior. |
+| Alarms | **iOS 26+:** wake alarms use **AlarmKit** after the user grants access (system-grade alerts that can break through Focus/silent). **iOS 17–25:** local notifications via `UNUserNotificationCenter`. Apps still cannot read or control Apple Clock’s own alarms. |
 | Background | Continuous execution is **not** guaranteed. Sleep timer uses persisted timestamps; remote check-ins are opportunistic. |
 | Battery / status | Only APIs Apple exposes (e.g. `UIDevice` battery monitoring). No secret surveillance. |
 | Stopping audio | The app can stop **its own** audio. Stopping Spotify requires Spotify’s supported remote APIs when connected. |
+
+## Android / Web (Flutter) alarms
+
+| Platform | Behavior |
+|----------|----------|
+| Android | Exact local notifications (`SCHEDULE_EXACT_ALARM` / `POST_NOTIFICATIONS`) with boot reschedule. Grant permission in onboarding or Alarms. |
+| Web | Best-effort browser notifications **while the tab stays open** — not a phone alarm clock. |
 
 ## Spotify Limitations
 
 - This app does **not** stream Spotify audio itself. Playback is requested via `PUT /me/player/play` on the user’s **active Spotify Connect device**.
 - **Spotify Premium** is typically required for Web API remote playback control.
-- An **active device** is required — usually open the Spotify app on the iPhone first. If none is active, the app opens Spotify and shows an honest “playback unavailable” recovery.
+- An **active device** is required — usually open the Spotify app on the phone first. If none is active, the app opens Spotify and shows an honest “playback unavailable” recovery.
 - Stopping Spotify uses `PUT /me/player/pause` when connected; there is no system-wide audio kill.
 - Official **App Remote** (SDK) is not bundled in this phase; it can be layered on later without changing the Keychain/PKCE token store.
 - Physical device + real Client ID recommended for end-to-end playback tests.
+- Redirect URIs to register in Spotify Dashboard:
+  - iOS / Android: `sleepingroutineforzy://spotify-callback`
+  - Flutter web: `http://127.0.0.1:7357/callback`
+
+## Device verification checklist (MVP)
+
+1. **Spotify Dashboard** — add the redirect URIs above; set `SPOTIFY_CLIENT_ID` in `Config/Secrets.xcconfig` (iOS) and/or `--dart-define=SPOTIFY_CLIENT_ID=...` (Flutter).
+2. **iPhone (Mac required)** — Xcode with **iOS 26 SDK** for AlarmKit path; signing Team; install on device; grant AlarmKit; set a wake alarm; connect Spotify and start a bedtime routine.
+3. **Older iPhone (iOS 17–25)** — same app build; alarms use notification fallback; grant notifications.
+4. **Android** — grant notifications + exact alarms; set alarm; force-stop app; confirm fire; complete Spotify OAuth (custom scheme returns into the app).
+5. **Chrome web** — Spotify connect via `http://127.0.0.1:7357`; confirm alarm limitation copy; browser reminders only while the tab is open.
 
 ## Admin Architecture
 
@@ -213,9 +234,13 @@ Config/                   # xcconfig (secrets gitignored)
 
 ## Phase status / next
 
-Phases 1–7 are implemented in the **Swift iOS** app. A parallel **Flutter (Android + Web)** port lives in `flutter_app/` for Windows testing (Chrome / Android emulator). It does not replace the iOS project.
+Phases 1–7 plus **MVP AlarmKit + cross-platform alarms/Spotify** are implemented:
 
-**Next instruction:** implement **Phase 8 — Privacy / security audit**, or continue Flutter polish.
+- **iOS:** AlarmKit on iOS 26+ (`AlarmSchedulerAlarmKit`), notification fallback otherwise; Spotify OAuth PKCE
+- **Flutter Android:** exact local notifications + Spotify deep-link (`sleepingroutineforzy://spotify-callback`)
+- **Flutter Web:** best-effort browser reminders + Spotify web redirect
+
+**Next:** Phase 8 — Privacy / security audit, or full device test matrix (Phase 9).
 
 ## Architecture notes
 

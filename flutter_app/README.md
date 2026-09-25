@@ -27,7 +27,7 @@ flutter run -d web-server --web-hostname=127.0.0.1 --web-port=7357
 
 Then open http://127.0.0.1:7357 in Chrome.
 
-## Run (Android emulator)
+## Run (Android emulator / device)
 
 ```powershell
 flutter emulators
@@ -35,51 +35,49 @@ flutter emulators --launch <id>
 flutter run -d android
 ```
 
-## Spotify (Flutter web)
+On first run, grant **notifications** and **exact alarms** when prompted (Onboarding → Allow alarms, or Alarms tab).
 
-Your Spotify app currently has the **iOS** redirect:
+## Spotify redirect URIs
 
-```
-sleepingroutineforzy://spotify-callback
-```
+Register **all** of these in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → Redirect URIs:
 
-For Flutter web you must **also** add this Redirect URI in the
-[Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → Settings → Redirect URIs:
+| Client | Redirect URI |
+|--------|----------------|
+| iOS / Android | `sleepingroutineforzy://spotify-callback` |
+| Flutter web | `http://127.0.0.1:7357/callback` |
 
-```
-http://127.0.0.1:7357/callback
-```
-
-Save, then restart:
+Android uses the custom scheme by default (deep link into the app via `app_links`).  
+Web uses the localhost callback (same-tab redirect). Override with:
 
 ```powershell
-flutter run -d web-server --web-hostname=127.0.0.1 --web-port=7357
+flutter run -d android --dart-define=SPOTIFY_CLIENT_ID=your_id
+flutter run -d web-server --web-hostname=127.0.0.1 --web-port=7357 --dart-define=SPOTIFY_CLIENT_ID=your_id
 ```
 
-Open **http://127.0.0.1:7357** (not `localhost`) so it matches the redirect URI exactly.
+Open **http://127.0.0.1:7357** (not `localhost`) so the web redirect matches exactly.
 
-
-Start the Admin backend first:
+## Admin backend
 
 ```powershell
 cd e:\Develop\App\Zy\SRZ\backend
 python -m uvicorn main:app --host 127.0.0.1 --port 8081
 ```
 
-## Feature parity (v0.7)
+## Feature parity (v0.8 MVP)
 
 | Area | Status |
 |------|--------|
-| Onboarding | Yes |
+| Onboarding | Yes (includes alarm permission) |
 | Home / sleep routine + timer timestamps | Yes |
 | Sleep timer presets | Yes |
-| Alarms (Android notifications; limited on web) | Partial on web |
+| Alarms (Android exact notifications) | Yes |
+| Alarms (web best-effort while tab open) | Yes — honest limitation copy |
 | App-owned quiet audio | Yes (asset tone) |
-| Spotify PKCE + Web API | Yes (needs Client ID) |
+| Spotify PKCE + Web API | Yes (Android deep link + web redirect) |
 | Remote Admin opt-in + pairing | Yes |
 | Privacy screen | Yes |
 
 ## Relationship to Swift
 
-Keep developing `SleepingRoutineForZy/` for production iPhone.  
-Use `flutter_app/` for Windows-friendly demos and iteration.
+Keep developing `SleepingRoutineForZy/` for production iPhone (AlarmKit on iOS 26+).  
+Use `flutter_app/` for Windows-friendly Android/Web demos and iteration.

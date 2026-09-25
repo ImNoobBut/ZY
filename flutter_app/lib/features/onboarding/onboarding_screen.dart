@@ -68,9 +68,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'Set your music, sleep timer, and alarm in one place.',
         );
       case 1:
-        return _text(
-          'Notifications',
-          'On Android, alarms use local notifications. On web, alarms are reminders inside the app only.',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _text(
+              'Stay on schedule',
+              state.alarmScheduler.isBestEffortOnly
+                  ? 'On web, alarms are browser reminders while this tab stays open — not a phone alarm clock.'
+                  : 'Allow notifications (and exact alarms on Android) so wake alarms can ring.',
+            ),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: 'Allow alarms',
+              onPressed: () async {
+                await state.requestAlarmPermission();
+                if (!mounted) return;
+                final ok = state.alarmsPermissionGranted == true;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(ok ? 'Alarm permission on.' : 'Permission denied — enable later in Settings.')),
+                );
+              },
+            ),
+          ],
         );
       case 2:
         return Column(

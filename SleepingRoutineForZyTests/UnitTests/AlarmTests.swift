@@ -59,7 +59,7 @@ final class AlarmsViewModelTests: XCTestCase {
         let viewModel = AlarmsViewModel(
             alarmRepository: environment.alarmRepository,
             alarmScheduler: scheduler,
-            notificationService: environment.notificationService
+            alarmAuthorization: environment.alarmAuthorization
         )
 
         let alarm = SleepAlarm.makeDefault(hour: 8, minute: 15)
@@ -76,7 +76,7 @@ final class AlarmsViewModelTests: XCTestCase {
         let viewModel = AlarmsViewModel(
             alarmRepository: environment.alarmRepository,
             alarmScheduler: scheduler,
-            notificationService: environment.notificationService
+            alarmAuthorization: environment.alarmAuthorization
         )
 
         let alarm = SleepAlarm.makeDefault()
@@ -93,7 +93,7 @@ final class AlarmsViewModelTests: XCTestCase {
         let viewModel = AlarmsViewModel(
             alarmRepository: environment.alarmRepository,
             alarmScheduler: scheduler,
-            notificationService: environment.notificationService
+            alarmAuthorization: environment.alarmAuthorization
         )
 
         let alarm = SleepAlarm.makeDefault()
@@ -111,7 +111,7 @@ final class AlarmsViewModelTests: XCTestCase {
         let viewModel = AlarmsViewModel(
             alarmRepository: environment.alarmRepository,
             alarmScheduler: scheduler,
-            notificationService: environment.notificationService
+            alarmAuthorization: environment.alarmAuthorization
         )
 
         let alarm = SleepAlarm.makeDefault()

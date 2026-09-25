@@ -54,7 +54,7 @@ struct AlarmsView: View {
                 viewModel = AlarmsViewModel(
                     alarmRepository: environment.alarmRepository,
                     alarmScheduler: environment.alarmScheduler,
-                    notificationService: environment.notificationService
+                    alarmAuthorization: environment.alarmAuthorization
                 )
                 didConfigure = true
             }
@@ -116,37 +116,49 @@ struct AlarmsView: View {
         Text(
             String(
                 localized: "alarms.limitation",
-                defaultValue: "These alarms use iOS notifications. They are helpful reminders, but they are not the same as Apple Clock and are not guaranteed while the phone is asleep or notifications are off."
+                defaultValue: viewModel?.usesAlarmKit == true
+                    ? "Wake alarms use AlarmKit on iOS 26+. They can alert even in Focus or silent mode after you grant access."
+                    : "These alarms use iOS notifications. Delivery depends on permission and system behavior."
             )
         )
         .font(AppTheme.Typography.caption)
         .foregroundStyle(AppTheme.secondaryText)
         .padding(.horizontal, AppTheme.horizontalPadding)
         .padding(.top, 8)
-        .accessibilityLabel(
-            String(
-                localized: "alarms.limitation.a11y",
-                defaultValue: "Limitation: alarms use notifications, not Apple Clock."
-            )
-        )
     }
 
     private func permissionCard(viewModel: AlarmsViewModel) -> some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 12) {
-                Text(String(localized: "alarms.permission.title", defaultValue: "Notifications are off"))
+                Text(
+                    String(
+                        localized: "alarms.permission.title",
+                        defaultValue: viewModel.usesAlarmKit
+                            ? "Alarm access is off"
+                            : "Notifications are off"
+                    )
+                )
                     .font(AppTheme.Typography.headline)
                     .foregroundStyle(AppTheme.primaryText)
                 Text(
                     String(
                         localized: "alarms.permission.body",
-                        defaultValue: "Enable notifications so wake reminders can appear."
+                        defaultValue: viewModel.usesAlarmKit
+                            ? "Enable alarm access so wake alarms can ring."
+                            : "Enable notifications so wake reminders can appear."
                     )
                 )
                 .font(AppTheme.Typography.body)
                 .foregroundStyle(AppTheme.secondaryText)
 
-                Button(String(localized: "alarms.permission.enable", defaultValue: "Enable notifications")) {
+                Button(
+                    String(
+                        localized: "alarms.permission.enable",
+                        defaultValue: viewModel.usesAlarmKit
+                            ? "Allow alarms"
+                            : "Enable notifications"
+                    )
+                ) {
                     Task { await viewModel.requestPermissionIfNeeded() }
                 }
                 .buttonStyle(PrimaryButtonStyle())

@@ -7,150 +7,154 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7746B99F40844AD5415354FF /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70C20FFD0EEEBD6E06830AC /* AppEnvironment.swift */; };
-		3D5D84E3437C677FAD63DA05 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88C92BDC2CBD8C1E90B8068 /* AppState.swift */; };
-		FDFD223648B9148996260F7F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2230BF24860081429BAB11BC /* RootView.swift */; };
-		5C0120F44C87328E5E9C3E6E /* SleepingRoutineForZyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A7B08D687EA422D8B65431 /* SleepingRoutineForZyApp.swift */; };
-		1B1E28A349B1717399C5961B /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F33861AFA45584D2A2D09D99 /* DomainModels.swift */; };
-		65C6D9E289D2E2719E91469B /* RoutineState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E599266EDC4A40C3F86B89C /* RoutineState.swift */; };
-		56C3B8D590AD1E91BADD91D2 /* SleepRoutineError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3111113633FC711A6DC47F1B /* SleepRoutineError.swift */; };
-		E669FF57F6D6C58C706637B9 /* SleepTimerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82627A5B904213E4ED3D7144 /* SleepTimerState.swift */; };
-		703D7AAF410319588E024AD1 /* AdminAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE1D9ABDFC61E8DEEDE18F8 /* AdminAPIClient.swift */; };
-		F2F0682D5C64043C2F08778C /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CDC30B9CBC60C04A8C4858 /* APIEndpoint.swift */; };
-		DD0748CF8EA35612CE806D0E /* SpotifyAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321567A7140B820C9F9191E9 /* SpotifyAPIClient.swift */; };
-		DBE1F1AB50D705D91985514A /* SpotifyAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E024889A77769ECF167E55FB /* SpotifyAuthManager.swift */; };
-		B1AB7B230C5109E731653761 /* SpotifyAuthTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949812507ED4651404942EB4 /* SpotifyAuthTypes.swift */; };
-		7F1AB39599B4932341CD608A /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D3BC6624FD19C19677F3455 /* PersistenceController.swift */; };
-		B9BABCF2D329CD3D839014CA /* SwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F207FA55767FD46CC118F621 /* SwiftDataModels.swift */; };
-		2DD39C441ED1A1FA660E2938 /* Repositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB319DA4E68540F6A8E699AF /* Repositories.swift */; };
-		306C545BE08B043C612BD7FB /* AdminCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12832A02C605F29A1DFDC691 /* AdminCredentialStore.swift */; };
-		938A49935208B664DB3DA727 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70ED913682B91C962634B543 /* KeychainService.swift */; };
-		41AE24046FE8A8B146B5E243 /* SpotifyTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82866CA57C018545C6C8E70B /* SpotifyTokenStore.swift */; };
-		3D0291EFA92EDBB449EE2EB3 /* AlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2486BC2074FE90FB9E5848 /* AlarmScheduler.swift */; };
-		29419F28CE2B9F8331115225 /* AudioServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BDCFF49E6CE5A278F157654 /* AudioServiceLive.swift */; };
-		C2B8203024A5FAC3DF26CA93 /* NotificationServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3878E1D2518772F6F3329CFB /* NotificationServiceLive.swift */; };
-		0E020FD86ADACF75AEBB53EF /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6DC79172E4F69CF5D4A6C96 /* ServiceProtocols.swift */; };
-		30D1D6CA1AA1F48C1528C53A /* SleepAudioSampleFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C8983A0DA6EEB12F827907 /* SleepAudioSampleFactory.swift */; };
-		BC8BE3DABD269ED82F2BFEE7 /* SpotifyServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AAC9A51D5CFA7FC6438A2B /* SpotifyServiceLive.swift */; };
-		B37EC2AD8694DB773C18465A /* StatusCheckInServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04FB199D3E4A303F810BE28 /* StatusCheckInServiceLive.swift */; };
-		2D52AAEDD325A0F266869D4F /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0DEE13B51508CE2B1DBA494 /* AppConfiguration.swift */; };
-		1B0090D84F73D47E46B84470 /* AdminMonitoringController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88D0CC7BBCFDD46C376AB02 /* AdminMonitoringController.swift */; };
-		878688B7A0E20775E88C9606 /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA17D10A616B5CFF5DDD128 /* AdminView.swift */; };
-		7A06EFA04527F1F0ED0B689E /* AdminViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53D0715CA212AA9207FAFE7 /* AdminViewModel.swift */; };
-		03AFC36A8286C71ED25AFB34 /* AlarmEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E447CE30981A54FAF1C3A47 /* AlarmEditorView.swift */; };
-		DB300875D813CCE94E4FD820 /* AlarmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5755997DFC9F2875D716E6F8 /* AlarmsView.swift */; };
-		0E46037936A680EB51F55122 /* AlarmsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5BBEF0F22A5ED1A792245A /* AlarmsViewModel.swift */; };
-		84BB6CE5ABB3442859D9A799 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC55FDA24D874D80C7C668C /* HomeView.swift */; };
-		84D944029D56777B9B2E9656 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0920A33DC75366AACDF76C6F /* HomeViewModel.swift */; };
-		AD6B0A02ED8D65988617F82E /* OnboardingFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2ED97BAC49BA9CBD4BA8E9A /* OnboardingFlowView.swift */; };
-		261A5955E5E8F4453ACA721E /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1646830E0177A52AFBCEA39A /* OnboardingViewModel.swift */; };
-		81629196CF8DA06667A0E7CC /* RoutineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A168DCB38F842374178A751 /* RoutineCoordinator.swift */; };
-		4252B2D8946DFFAB01FB359C /* SleepRoutineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427C5BE90584F26165589347 /* SleepRoutineController.swift */; };
-		E5CDFFB705EB45F90FFBF935 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E2D0434D7E33641676E84B3 /* SettingsView.swift */; };
-		5D82B7B8D8C1E2265C47FC8B /* SleepTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6045899D2F1CC8BC9BA225 /* SleepTimerView.swift */; };
-		903063AFD44B3B52AEEBA3A2 /* SleepTimerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA3EFD8748F790261589E658 /* SleepTimerViewModel.swift */; };
-		E9650874B7175FCC3BE44D4B /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530F64C4E92CEB7D69616279 /* SpotifyView.swift */; };
-		0DA12DB107E3A7B7BA522F19 /* SpotifyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3063A236E5052D3E1B08FF /* SpotifyViewModel.swift */; };
-		5F5D33308D71969D841FE4C8 /* CommonComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C42D83A83ADEC2D06EEF18D /* CommonComponents.swift */; };
-		89B57B61293B3CAC95E9A4D5 /* View+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796EDC52FC6770F9C0924824 /* View+Theme.swift */; };
-		84350034FABE7337F08522DD /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E074966A832B3EEE7413BE8 /* AppTheme.swift */; };
-		75F7D7F9D756250666253136 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 103E099495CECE5214A4AF1E /* Localizable.xcstrings */; };
-		E97FDD523F42254DD9B1054E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E2F28611255C7A1C1873380C /* Assets.xcassets */; };
-		B739399D6C30B5FC58F43979 /* AdminTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D19A9D8E0736EAFE2A074DD /* AdminTests.swift */; };
-		EC7EB528A7A05B31F6AAC8C1 /* AlarmTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73487E4EB88268283984E93C /* AlarmTests.swift */; };
-		B9CA75BDEC7EEDA86D5A9334 /* AudioServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F6A92667FBF21E04A0A44C /* AudioServiceTests.swift */; };
-		B80C1520F81957FF91522F23 /* OnboardingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075C1CFD75B246653585B301 /* OnboardingViewModelTests.swift */; };
-		8B0561827ADF756B10A4E9B6 /* PersistenceRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC00CB5C1BE6373EDD4412F4 /* PersistenceRepositoryTests.swift */; };
-		FC7F7B76BBACEBDEFD861365 /* Phase1FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C3F42D56186AFC09F90832 /* Phase1FoundationTests.swift */; };
-		AB756A61BD8FADDB57F23D51 /* SleepRoutineControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BB89F25FE6211B86C9E9DD /* SleepRoutineControllerTests.swift */; };
-		AB67EC98A77F06FA39C5A31B /* SpotifyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD68BDD7E8C4ABF068D6B0CE /* SpotifyTests.swift */; };
-		3B8BDBBBC21346A581501C57 /* SleepingRoutineForZyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F445BA85FBFB64D59F585D6 /* SleepingRoutineForZyUITests.swift */; };
+		0BC02689799C63D571AD5A0E /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98B7116B340EEA0A954ACF93 /* AppEnvironment.swift */; };
+		4AB41242D2D787E56C777050 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B359004142539A8C74031A4 /* AppState.swift */; };
+		0E20B210619C21E49F98669B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CCBE6D08CF8E1AC86E2434B /* RootView.swift */; };
+		54847FFBB2B8FC3BA1F0E471 /* SleepingRoutineForZyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C456FE63BC8EFE5043DEF05 /* SleepingRoutineForZyApp.swift */; };
+		35042FB828767609A9172CCC /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47127A8E81B67A78FB2F9A47 /* DomainModels.swift */; };
+		FE1894748C98D3D61E0E6577 /* RoutineState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10DD8D1D472CE27AD23B510A /* RoutineState.swift */; };
+		0A11B5A33DAEC8E16975E936 /* SleepRoutineError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F1F26315F7D4D10BBBBB0C /* SleepRoutineError.swift */; };
+		33FE58B3FFD2ADA1EEAEABDD /* SleepTimerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A557F77FD9731DCD3B489F9 /* SleepTimerState.swift */; };
+		5F663B42346A88CBDA30581E /* AdminAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5076747728F0C7936DD10BC7 /* AdminAPIClient.swift */; };
+		8A4C0D81F2BEAE0A071CC33E /* APIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61EEBE4FA03C0E05DB98195 /* APIEndpoint.swift */; };
+		163B2C345F7FFAFB8C6ECAFF /* SpotifyAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAE71B322BEFCBE7B025ED0 /* SpotifyAPIClient.swift */; };
+		AC419976AF7DF38F235138F6 /* SpotifyAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC673B7FF448B6D5858C231 /* SpotifyAuthManager.swift */; };
+		BF65541354D07C871ED710DF /* SpotifyAuthTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93C84E8C18B3E2FD2C4D8A9 /* SpotifyAuthTypes.swift */; };
+		C96716D014BE6A1D18C2DC38 /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB15F9431B4353BEF410FDFC /* PersistenceController.swift */; };
+		EB7E3D04344FED8A3C4936FF /* SwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698D6EE9A96676E94C175B95 /* SwiftDataModels.swift */; };
+		ACC5E1BE8315F0BA1414FFF6 /* Repositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = F48A728B05931283599ADFBD /* Repositories.swift */; };
+		0FEA29985D90568341F5F333 /* AdminCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E5A867F0972B10566F5F71 /* AdminCredentialStore.swift */; };
+		F74AF0827FFD3FDAD936F753 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E412342E9F29273FC5A3CF /* KeychainService.swift */; };
+		43EC05C7AA3640E1851FB578 /* SpotifyTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F502108E65AC331F933714 /* SpotifyTokenStore.swift */; };
+		CD0A9AA67303C2AB359718F9 /* AlarmAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FBC8E9573E4DF5F6CD8E9AD /* AlarmAuthorization.swift */; };
+		CACC0F0D54463C0A4BCA0108 /* AlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA7F04AB77286BBD303C037 /* AlarmScheduler.swift */; };
+		CE37F5BAF50F9A9B630F3A32 /* AlarmSchedulerAlarmKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C87739DD598C270D1D014BD /* AlarmSchedulerAlarmKit.swift */; };
+		1A6FF6B0E10CFC85F95AAC2F /* AudioServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D6CAE038DD217436BC14D4 /* AudioServiceLive.swift */; };
+		32D2B2439F98BEB5D83E026E /* NotificationServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 649189500DBE831F2402EB77 /* NotificationServiceLive.swift */; };
+		0910E22BF44223FC4E413B8B /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = D930B3CD6E9304800DD6585C /* ServiceProtocols.swift */; };
+		93695EEDEEEE3A6E0D9ACE1D /* SleepAudioSampleFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B1B0D75D3B49D90D3724ED /* SleepAudioSampleFactory.swift */; };
+		0DFA4A4E4659AA9DB942B4B0 /* SpotifyServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58EFA18063E343033D2976F0 /* SpotifyServiceLive.swift */; };
+		F81778A4417227A6C327A2AC /* StatusCheckInServiceLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B455C203A96A879BEB86DE /* StatusCheckInServiceLive.swift */; };
+		8866288B15030AAAD93C2F6E /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E01B5B48960B8C8C44014DE /* AppConfiguration.swift */; };
+		2A4112F975632BDB2DD0B6BA /* AdminMonitoringController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDD8D8D2F5F9C595C9934DCB /* AdminMonitoringController.swift */; };
+		98BE7E17E0F15E3B845AE9FA /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA7FFC681CE9BF315047665F /* AdminView.swift */; };
+		4564403F6E690DC54A0F5850 /* AdminViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F7E320A009863EE3EB0437 /* AdminViewModel.swift */; };
+		F0E320481F59C726D46289D5 /* AlarmEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1454852EB7E116C3ED6ABA55 /* AlarmEditorView.swift */; };
+		E65FF87EEAA6025EE45B2874 /* AlarmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08D732D3D979642A1AFB4A5D /* AlarmsView.swift */; };
+		D54EFF5CBA7270BAA5F36973 /* AlarmsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD27297A327CD246864EE643 /* AlarmsViewModel.swift */; };
+		B5AAE5C1E38FCD53334A4C0A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87418E96D95818EC1F696DE /* HomeView.swift */; };
+		5C976AB3B771FF874DB1AAF7 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD9DC0735E3FF28391F01DC /* HomeViewModel.swift */; };
+		36D2C12ABE08156DA6688AEE /* OnboardingFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC45EE6BB421C3F3DC34FDA0 /* OnboardingFlowView.swift */; };
+		400BAD93D16A7F93945C169C /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615BD4C9F84A5FE83C6274C6 /* OnboardingViewModel.swift */; };
+		C2ABBEF99E066C83764C7137 /* RoutineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7CDB5E685F22005282E655 /* RoutineCoordinator.swift */; };
+		9E14E87D5FDD3CCC6B87EBDE /* SleepRoutineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A944E05AA515E9CD74ECAB3 /* SleepRoutineController.swift */; };
+		69DACC3976745FA926CBC43D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BD987087387033F15B486FB /* SettingsView.swift */; };
+		13B2A879C953690F5508996C /* SleepTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DFB2BDB345E5C1A0BBA84DD /* SleepTimerView.swift */; };
+		9EDD40DB4773502EE4F1F11D /* SleepTimerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61ECDF7D0ED6566018D09CF /* SleepTimerViewModel.swift */; };
+		B1E88F193F5658FE45DA9427 /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5940707A4F2FEF7DF1D8E159 /* SpotifyView.swift */; };
+		87BB6750002C7335600D1277 /* SpotifyViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8700A39A8C355C2A4F1019CF /* SpotifyViewModel.swift */; };
+		BCF9C67BDA98182D6ED204B2 /* CommonComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1533741DECE7C5A390958636 /* CommonComponents.swift */; };
+		D669ED6F523667B23D07BEE2 /* View+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AB17EF8507B252CA644393 /* View+Theme.swift */; };
+		9D38B0E5775BC1991DEA9796 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A5FDDB3BE83AC16E497BCA /* AppTheme.swift */; };
+		14BDC7B18E79FAF786C92A07 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 89687FAF051D02151F39F78D /* Localizable.xcstrings */; };
+		BF77FE3B4C6F80DD72A9244C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6DADC9938E5F550DB628ED04 /* Assets.xcassets */; };
+		4F092D93B9976D7055D163DD /* AdminTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E35BAD38F162D8178905A8 /* AdminTests.swift */; };
+		F8DC0787F772B0ADE85E1522 /* AlarmTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D709A4F55F79BE19E2C31E1C /* AlarmTests.swift */; };
+		D129AF85CF16C777341A1DDF /* AudioServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57E9FAAC139AF886883D7F1 /* AudioServiceTests.swift */; };
+		C624B4B0FAD4B8CF0BF8AC79 /* OnboardingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E697909604D786C9D1DF133 /* OnboardingViewModelTests.swift */; };
+		ACC72D6D1B0C3ABEA7F7EDC7 /* PersistenceRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925C047AB7A812951404A569 /* PersistenceRepositoryTests.swift */; };
+		B44E05452673679A2D031A14 /* Phase1FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C4730CC9695AA237DAFC58 /* Phase1FoundationTests.swift */; };
+		C789D57E57306B3617A2D099 /* SleepRoutineControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6C7F14D9CD27E4EAB3A86C /* SleepRoutineControllerTests.swift */; };
+		9F67E797E57379C6E73280AC /* SpotifyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 491CB7E81433205E81172B70 /* SpotifyTests.swift */; };
+		6F4F17851646052E492CDEF2 /* SleepingRoutineForZyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A979E33892E72FCC1C06B9A /* SleepingRoutineForZyUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		E70C20FFD0EEEBD6E06830AC /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/AppEnvironment.swift"; sourceTree = SOURCE_ROOT; };
-		E88C92BDC2CBD8C1E90B8068 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/AppState.swift"; sourceTree = SOURCE_ROOT; };
-		2230BF24860081429BAB11BC /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/RootView.swift"; sourceTree = SOURCE_ROOT; };
-		E3A7B08D687EA422D8B65431 /* SleepingRoutineForZyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/SleepingRoutineForZyApp.swift"; sourceTree = SOURCE_ROOT; };
-		F33861AFA45584D2A2D09D99 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/DomainModels.swift"; sourceTree = SOURCE_ROOT; };
-		8E599266EDC4A40C3F86B89C /* RoutineState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/RoutineState.swift"; sourceTree = SOURCE_ROOT; };
-		3111113633FC711A6DC47F1B /* SleepRoutineError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/SleepRoutineError.swift"; sourceTree = SOURCE_ROOT; };
-		82627A5B904213E4ED3D7144 /* SleepTimerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/SleepTimerState.swift"; sourceTree = SOURCE_ROOT; };
-		AAE1D9ABDFC61E8DEEDE18F8 /* AdminAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/AdminAPIClient.swift"; sourceTree = SOURCE_ROOT; };
-		37CDC30B9CBC60C04A8C4858 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/APIEndpoint.swift"; sourceTree = SOURCE_ROOT; };
-		321567A7140B820C9F9191E9 /* SpotifyAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAPIClient.swift"; sourceTree = SOURCE_ROOT; };
-		E024889A77769ECF167E55FB /* SpotifyAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAuthManager.swift"; sourceTree = SOURCE_ROOT; };
-		949812507ED4651404942EB4 /* SpotifyAuthTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAuthTypes.swift"; sourceTree = SOURCE_ROOT; };
-		3D3BC6624FD19C19677F3455 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Persistence/PersistenceController.swift"; sourceTree = SOURCE_ROOT; };
-		F207FA55767FD46CC118F621 /* SwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Persistence/SwiftDataModels.swift"; sourceTree = SOURCE_ROOT; };
-		CB319DA4E68540F6A8E699AF /* Repositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Repositories/Repositories.swift"; sourceTree = SOURCE_ROOT; };
-		12832A02C605F29A1DFDC691 /* AdminCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/AdminCredentialStore.swift"; sourceTree = SOURCE_ROOT; };
-		70ED913682B91C962634B543 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/KeychainService.swift"; sourceTree = SOURCE_ROOT; };
-		82866CA57C018545C6C8E70B /* SpotifyTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/SpotifyTokenStore.swift"; sourceTree = SOURCE_ROOT; };
-		1D2486BC2074FE90FB9E5848 /* AlarmScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AlarmScheduler.swift"; sourceTree = SOURCE_ROOT; };
-		8BDCFF49E6CE5A278F157654 /* AudioServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AudioServiceLive.swift"; sourceTree = SOURCE_ROOT; };
-		3878E1D2518772F6F3329CFB /* NotificationServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/NotificationServiceLive.swift"; sourceTree = SOURCE_ROOT; };
-		E6DC79172E4F69CF5D4A6C96 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/ServiceProtocols.swift"; sourceTree = SOURCE_ROOT; };
-		E1C8983A0DA6EEB12F827907 /* SleepAudioSampleFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/SleepAudioSampleFactory.swift"; sourceTree = SOURCE_ROOT; };
-		02AAC9A51D5CFA7FC6438A2B /* SpotifyServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/SpotifyServiceLive.swift"; sourceTree = SOURCE_ROOT; };
-		A04FB199D3E4A303F810BE28 /* StatusCheckInServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/StatusCheckInServiceLive.swift"; sourceTree = SOURCE_ROOT; };
-		E0DEE13B51508CE2B1DBA494 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Utilities/AppConfiguration.swift"; sourceTree = SOURCE_ROOT; };
-		D88D0CC7BBCFDD46C376AB02 /* AdminMonitoringController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminMonitoringController.swift"; sourceTree = SOURCE_ROOT; };
-		9CA17D10A616B5CFF5DDD128 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminView.swift"; sourceTree = SOURCE_ROOT; };
-		B53D0715CA212AA9207FAFE7 /* AdminViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		2E447CE30981A54FAF1C3A47 /* AlarmEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmEditorView.swift"; sourceTree = SOURCE_ROOT; };
-		5755997DFC9F2875D716E6F8 /* AlarmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmsView.swift"; sourceTree = SOURCE_ROOT; };
-		CD5BBEF0F22A5ED1A792245A /* AlarmsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmsViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		DAC55FDA24D874D80C7C668C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Home/HomeView.swift"; sourceTree = SOURCE_ROOT; };
-		0920A33DC75366AACDF76C6F /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Home/HomeViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		F2ED97BAC49BA9CBD4BA8E9A /* OnboardingFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Onboarding/OnboardingFlowView.swift"; sourceTree = SOURCE_ROOT; };
-		1646830E0177A52AFBCEA39A /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Onboarding/OnboardingViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		3A168DCB38F842374178A751 /* RoutineCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Routine/RoutineCoordinator.swift"; sourceTree = SOURCE_ROOT; };
-		427C5BE90584F26165589347 /* SleepRoutineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Routine/SleepRoutineController.swift"; sourceTree = SOURCE_ROOT; };
-		3E2D0434D7E33641676E84B3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Settings/SettingsView.swift"; sourceTree = SOURCE_ROOT; };
-		EF6045899D2F1CC8BC9BA225 /* SleepTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/SleepTimer/SleepTimerView.swift"; sourceTree = SOURCE_ROOT; };
-		CA3EFD8748F790261589E658 /* SleepTimerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/SleepTimer/SleepTimerViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		530F64C4E92CEB7D69616279 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Spotify/SpotifyView.swift"; sourceTree = SOURCE_ROOT; };
-		8A3063A236E5052D3E1B08FF /* SpotifyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Spotify/SpotifyViewModel.swift"; sourceTree = SOURCE_ROOT; };
-		0C42D83A83ADEC2D06EEF18D /* CommonComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Components/CommonComponents.swift"; sourceTree = SOURCE_ROOT; };
-		796EDC52FC6770F9C0924824 /* View+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Extensions/View+Theme.swift"; sourceTree = SOURCE_ROOT; };
-		7E074966A832B3EEE7413BE8 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Theme/AppTheme.swift"; sourceTree = SOURCE_ROOT; };
-		7C5AA35AB97FE18FAB684E24 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SleepingRoutineForZy/Resources/Info.plist"; sourceTree = SOURCE_ROOT; };
-		103E099495CECE5214A4AF1E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = "SleepingRoutineForZy/Resources/Localizable.xcstrings"; sourceTree = SOURCE_ROOT; };
-		E2F28611255C7A1C1873380C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "SleepingRoutineForZy/Resources/Assets.xcassets"; sourceTree = SOURCE_ROOT; };
-		0D19A9D8E0736EAFE2A074DD /* AdminTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AdminTests.swift"; sourceTree = SOURCE_ROOT; };
-		73487E4EB88268283984E93C /* AlarmTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AlarmTests.swift"; sourceTree = SOURCE_ROOT; };
-		11F6A92667FBF21E04A0A44C /* AudioServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AudioServiceTests.swift"; sourceTree = SOURCE_ROOT; };
-		075C1CFD75B246653585B301 /* OnboardingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/OnboardingViewModelTests.swift"; sourceTree = SOURCE_ROOT; };
-		EC00CB5C1BE6373EDD4412F4 /* PersistenceRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/PersistenceRepositoryTests.swift"; sourceTree = SOURCE_ROOT; };
-		92C3F42D56186AFC09F90832 /* Phase1FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/Phase1FoundationTests.swift"; sourceTree = SOURCE_ROOT; };
-		94BB89F25FE6211B86C9E9DD /* SleepRoutineControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/SleepRoutineControllerTests.swift"; sourceTree = SOURCE_ROOT; };
-		CD68BDD7E8C4ABF068D6B0CE /* SpotifyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/SpotifyTests.swift"; sourceTree = SOURCE_ROOT; };
-		1F445BA85FBFB64D59F585D6 /* SleepingRoutineForZyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyUITests/SleepingRoutineForZyUITests.swift"; sourceTree = SOURCE_ROOT; };
-		04CAD1DE9AA3BB75AA22E6C9 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
-		2FC880FA859D8B37FF06B833 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Release.xcconfig; sourceTree = SOURCE_ROOT; };
-		DE299D87159754B222425FF7 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Shared.xcconfig; sourceTree = SOURCE_ROOT; };
-		98EAAF93EB3F2E2A43E2CD74 /* SleepingRoutineForZy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SleepingRoutineForZy.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6446439284D6E89B920ECD1E /* SleepingRoutineForZyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepingRoutineForZyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B1D0069C81755670F016CADD /* SleepingRoutineForZyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepingRoutineForZyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		98B7116B340EEA0A954ACF93 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/AppEnvironment.swift"; sourceTree = SOURCE_ROOT; };
+		7B359004142539A8C74031A4 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/AppState.swift"; sourceTree = SOURCE_ROOT; };
+		8CCBE6D08CF8E1AC86E2434B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/RootView.swift"; sourceTree = SOURCE_ROOT; };
+		9C456FE63BC8EFE5043DEF05 /* SleepingRoutineForZyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/App/SleepingRoutineForZyApp.swift"; sourceTree = SOURCE_ROOT; };
+		47127A8E81B67A78FB2F9A47 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/DomainModels.swift"; sourceTree = SOURCE_ROOT; };
+		10DD8D1D472CE27AD23B510A /* RoutineState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/RoutineState.swift"; sourceTree = SOURCE_ROOT; };
+		F8F1F26315F7D4D10BBBBB0C /* SleepRoutineError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/SleepRoutineError.swift"; sourceTree = SOURCE_ROOT; };
+		0A557F77FD9731DCD3B489F9 /* SleepTimerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Models/SleepTimerState.swift"; sourceTree = SOURCE_ROOT; };
+		5076747728F0C7936DD10BC7 /* AdminAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/AdminAPIClient.swift"; sourceTree = SOURCE_ROOT; };
+		B61EEBE4FA03C0E05DB98195 /* APIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/APIEndpoint.swift"; sourceTree = SOURCE_ROOT; };
+		8BAE71B322BEFCBE7B025ED0 /* SpotifyAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAPIClient.swift"; sourceTree = SOURCE_ROOT; };
+		6CC673B7FF448B6D5858C231 /* SpotifyAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAuthManager.swift"; sourceTree = SOURCE_ROOT; };
+		F93C84E8C18B3E2FD2C4D8A9 /* SpotifyAuthTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Networking/SpotifyAuthTypes.swift"; sourceTree = SOURCE_ROOT; };
+		BB15F9431B4353BEF410FDFC /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Persistence/PersistenceController.swift"; sourceTree = SOURCE_ROOT; };
+		698D6EE9A96676E94C175B95 /* SwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Persistence/SwiftDataModels.swift"; sourceTree = SOURCE_ROOT; };
+		F48A728B05931283599ADFBD /* Repositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Repositories/Repositories.swift"; sourceTree = SOURCE_ROOT; };
+		64E5A867F0972B10566F5F71 /* AdminCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/AdminCredentialStore.swift"; sourceTree = SOURCE_ROOT; };
+		E6E412342E9F29273FC5A3CF /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/KeychainService.swift"; sourceTree = SOURCE_ROOT; };
+		D6F502108E65AC331F933714 /* SpotifyTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Security/SpotifyTokenStore.swift"; sourceTree = SOURCE_ROOT; };
+		8FBC8E9573E4DF5F6CD8E9AD /* AlarmAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AlarmAuthorization.swift"; sourceTree = SOURCE_ROOT; };
+		FBA7F04AB77286BBD303C037 /* AlarmScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AlarmScheduler.swift"; sourceTree = SOURCE_ROOT; };
+		9C87739DD598C270D1D014BD /* AlarmSchedulerAlarmKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AlarmSchedulerAlarmKit.swift"; sourceTree = SOURCE_ROOT; };
+		93D6CAE038DD217436BC14D4 /* AudioServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/AudioServiceLive.swift"; sourceTree = SOURCE_ROOT; };
+		649189500DBE831F2402EB77 /* NotificationServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/NotificationServiceLive.swift"; sourceTree = SOURCE_ROOT; };
+		D930B3CD6E9304800DD6585C /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/ServiceProtocols.swift"; sourceTree = SOURCE_ROOT; };
+		80B1B0D75D3B49D90D3724ED /* SleepAudioSampleFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/SleepAudioSampleFactory.swift"; sourceTree = SOURCE_ROOT; };
+		58EFA18063E343033D2976F0 /* SpotifyServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/SpotifyServiceLive.swift"; sourceTree = SOURCE_ROOT; };
+		51B455C203A96A879BEB86DE /* StatusCheckInServiceLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Services/StatusCheckInServiceLive.swift"; sourceTree = SOURCE_ROOT; };
+		5E01B5B48960B8C8C44014DE /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Core/Utilities/AppConfiguration.swift"; sourceTree = SOURCE_ROOT; };
+		CDD8D8D2F5F9C595C9934DCB /* AdminMonitoringController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminMonitoringController.swift"; sourceTree = SOURCE_ROOT; };
+		CA7FFC681CE9BF315047665F /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminView.swift"; sourceTree = SOURCE_ROOT; };
+		48F7E320A009863EE3EB0437 /* AdminViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Admin/AdminViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		1454852EB7E116C3ED6ABA55 /* AlarmEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmEditorView.swift"; sourceTree = SOURCE_ROOT; };
+		08D732D3D979642A1AFB4A5D /* AlarmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmsView.swift"; sourceTree = SOURCE_ROOT; };
+		AD27297A327CD246864EE643 /* AlarmsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Alarms/AlarmsViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		B87418E96D95818EC1F696DE /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Home/HomeView.swift"; sourceTree = SOURCE_ROOT; };
+		5AD9DC0735E3FF28391F01DC /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Home/HomeViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		FC45EE6BB421C3F3DC34FDA0 /* OnboardingFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Onboarding/OnboardingFlowView.swift"; sourceTree = SOURCE_ROOT; };
+		615BD4C9F84A5FE83C6274C6 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Onboarding/OnboardingViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		5E7CDB5E685F22005282E655 /* RoutineCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Routine/RoutineCoordinator.swift"; sourceTree = SOURCE_ROOT; };
+		6A944E05AA515E9CD74ECAB3 /* SleepRoutineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Routine/SleepRoutineController.swift"; sourceTree = SOURCE_ROOT; };
+		4BD987087387033F15B486FB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Settings/SettingsView.swift"; sourceTree = SOURCE_ROOT; };
+		8DFB2BDB345E5C1A0BBA84DD /* SleepTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/SleepTimer/SleepTimerView.swift"; sourceTree = SOURCE_ROOT; };
+		C61ECDF7D0ED6566018D09CF /* SleepTimerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/SleepTimer/SleepTimerViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		5940707A4F2FEF7DF1D8E159 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Spotify/SpotifyView.swift"; sourceTree = SOURCE_ROOT; };
+		8700A39A8C355C2A4F1019CF /* SpotifyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/Features/Spotify/SpotifyViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		1533741DECE7C5A390958636 /* CommonComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Components/CommonComponents.swift"; sourceTree = SOURCE_ROOT; };
+		66AB17EF8507B252CA644393 /* View+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Extensions/View+Theme.swift"; sourceTree = SOURCE_ROOT; };
+		17A5FDDB3BE83AC16E497BCA /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZy/UI/Theme/AppTheme.swift"; sourceTree = SOURCE_ROOT; };
+		C627C5D147E95398B3DE80A5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SleepingRoutineForZy/Resources/Info.plist"; sourceTree = SOURCE_ROOT; };
+		89687FAF051D02151F39F78D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = "SleepingRoutineForZy/Resources/Localizable.xcstrings"; sourceTree = SOURCE_ROOT; };
+		6DADC9938E5F550DB628ED04 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "SleepingRoutineForZy/Resources/Assets.xcassets"; sourceTree = SOURCE_ROOT; };
+		31E35BAD38F162D8178905A8 /* AdminTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AdminTests.swift"; sourceTree = SOURCE_ROOT; };
+		D709A4F55F79BE19E2C31E1C /* AlarmTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AlarmTests.swift"; sourceTree = SOURCE_ROOT; };
+		B57E9FAAC139AF886883D7F1 /* AudioServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/AudioServiceTests.swift"; sourceTree = SOURCE_ROOT; };
+		1E697909604D786C9D1DF133 /* OnboardingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/OnboardingViewModelTests.swift"; sourceTree = SOURCE_ROOT; };
+		925C047AB7A812951404A569 /* PersistenceRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/PersistenceRepositoryTests.swift"; sourceTree = SOURCE_ROOT; };
+		A3C4730CC9695AA237DAFC58 /* Phase1FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/Phase1FoundationTests.swift"; sourceTree = SOURCE_ROOT; };
+		0A6C7F14D9CD27E4EAB3A86C /* SleepRoutineControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/SleepRoutineControllerTests.swift"; sourceTree = SOURCE_ROOT; };
+		491CB7E81433205E81172B70 /* SpotifyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyTests/UnitTests/SpotifyTests.swift"; sourceTree = SOURCE_ROOT; };
+		7A979E33892E72FCC1C06B9A /* SleepingRoutineForZyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SleepingRoutineForZyUITests/SleepingRoutineForZyUITests.swift"; sourceTree = SOURCE_ROOT; };
+		003915493F8E4A2E678C9529 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		9AC7328C2D4FA7890E9EBB73 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		C5FA5DBDCABA1AEA2B0CB9BC /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Shared.xcconfig; sourceTree = SOURCE_ROOT; };
+		5E2590FB70F938C73574C5E6 /* SleepingRoutineForZy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SleepingRoutineForZy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		822CA643D01A7501BE9C4A0A /* SleepingRoutineForZyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepingRoutineForZyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C4447C644BBD9786149AEFF /* SleepingRoutineForZyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleepingRoutineForZyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		5AA3E3023E2F521CFDE12453 /* Frameworks */ = {
+		BDC5FD676A6DCB69CF9A5547 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5CA805DE7FECE6F9834E312 /* Frameworks */ = {
+		F52846E427FD4EDD3DD84798 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6896805022129B8E5DC44108 /* Frameworks */ = {
+		52FA3972B44B017F8B8A96D7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -160,113 +164,115 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		528F5480FBA0BBA164D42FE2 = {
+		8F36595D003A9A57B0EC40A3 = {
 			isa = PBXGroup;
 			children = (
-				0C3FF0772B631B6759C0657D /* SleepingRoutineForZy */,
-				1C773B5C76BE736CE09DE5A2 /* SleepingRoutineForZyTests */,
-				B71ED3AE938EC711F439C546 /* SleepingRoutineForZyUITests */,
-				CDDA5B767F78BBC08C9F7DB7 /* Config */,
-				EC3F28F1C85C787616DFBB9F /* Products */,
+				F5A52461CB145A99EE30791C /* SleepingRoutineForZy */,
+				80C04193CEDD1AD975AEAAF8 /* SleepingRoutineForZyTests */,
+				B084962269539820E30C209B /* SleepingRoutineForZyUITests */,
+				FA762EBE9E0A3B8177184CAB /* Config */,
+				EEA716B804D3FB0EB7C5C0FD /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		EC3F28F1C85C787616DFBB9F /* Products */ = {
+		EEA716B804D3FB0EB7C5C0FD /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				98EAAF93EB3F2E2A43E2CD74 /* SleepingRoutineForZy.app */,
-				6446439284D6E89B920ECD1E /* SleepingRoutineForZyTests.xctest */,
-				B1D0069C81755670F016CADD /* SleepingRoutineForZyUITests.xctest */,
+				5E2590FB70F938C73574C5E6 /* SleepingRoutineForZy.app */,
+				822CA643D01A7501BE9C4A0A /* SleepingRoutineForZyTests.xctest */,
+				6C4447C644BBD9786149AEFF /* SleepingRoutineForZyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		0C3FF0772B631B6759C0657D /* SleepingRoutineForZy */ = {
+		F5A52461CB145A99EE30791C /* SleepingRoutineForZy */ = {
 			isa = PBXGroup;
 			children = (
-				E70C20FFD0EEEBD6E06830AC /* AppEnvironment.swift */,
-				E88C92BDC2CBD8C1E90B8068 /* AppState.swift */,
-				2230BF24860081429BAB11BC /* RootView.swift */,
-				E3A7B08D687EA422D8B65431 /* SleepingRoutineForZyApp.swift */,
-				F33861AFA45584D2A2D09D99 /* DomainModels.swift */,
-				8E599266EDC4A40C3F86B89C /* RoutineState.swift */,
-				3111113633FC711A6DC47F1B /* SleepRoutineError.swift */,
-				82627A5B904213E4ED3D7144 /* SleepTimerState.swift */,
-				AAE1D9ABDFC61E8DEEDE18F8 /* AdminAPIClient.swift */,
-				37CDC30B9CBC60C04A8C4858 /* APIEndpoint.swift */,
-				321567A7140B820C9F9191E9 /* SpotifyAPIClient.swift */,
-				E024889A77769ECF167E55FB /* SpotifyAuthManager.swift */,
-				949812507ED4651404942EB4 /* SpotifyAuthTypes.swift */,
-				3D3BC6624FD19C19677F3455 /* PersistenceController.swift */,
-				F207FA55767FD46CC118F621 /* SwiftDataModels.swift */,
-				CB319DA4E68540F6A8E699AF /* Repositories.swift */,
-				12832A02C605F29A1DFDC691 /* AdminCredentialStore.swift */,
-				70ED913682B91C962634B543 /* KeychainService.swift */,
-				82866CA57C018545C6C8E70B /* SpotifyTokenStore.swift */,
-				1D2486BC2074FE90FB9E5848 /* AlarmScheduler.swift */,
-				8BDCFF49E6CE5A278F157654 /* AudioServiceLive.swift */,
-				3878E1D2518772F6F3329CFB /* NotificationServiceLive.swift */,
-				E6DC79172E4F69CF5D4A6C96 /* ServiceProtocols.swift */,
-				E1C8983A0DA6EEB12F827907 /* SleepAudioSampleFactory.swift */,
-				02AAC9A51D5CFA7FC6438A2B /* SpotifyServiceLive.swift */,
-				A04FB199D3E4A303F810BE28 /* StatusCheckInServiceLive.swift */,
-				E0DEE13B51508CE2B1DBA494 /* AppConfiguration.swift */,
-				D88D0CC7BBCFDD46C376AB02 /* AdminMonitoringController.swift */,
-				9CA17D10A616B5CFF5DDD128 /* AdminView.swift */,
-				B53D0715CA212AA9207FAFE7 /* AdminViewModel.swift */,
-				2E447CE30981A54FAF1C3A47 /* AlarmEditorView.swift */,
-				5755997DFC9F2875D716E6F8 /* AlarmsView.swift */,
-				CD5BBEF0F22A5ED1A792245A /* AlarmsViewModel.swift */,
-				DAC55FDA24D874D80C7C668C /* HomeView.swift */,
-				0920A33DC75366AACDF76C6F /* HomeViewModel.swift */,
-				F2ED97BAC49BA9CBD4BA8E9A /* OnboardingFlowView.swift */,
-				1646830E0177A52AFBCEA39A /* OnboardingViewModel.swift */,
-				3A168DCB38F842374178A751 /* RoutineCoordinator.swift */,
-				427C5BE90584F26165589347 /* SleepRoutineController.swift */,
-				3E2D0434D7E33641676E84B3 /* SettingsView.swift */,
-				EF6045899D2F1CC8BC9BA225 /* SleepTimerView.swift */,
-				CA3EFD8748F790261589E658 /* SleepTimerViewModel.swift */,
-				530F64C4E92CEB7D69616279 /* SpotifyView.swift */,
-				8A3063A236E5052D3E1B08FF /* SpotifyViewModel.swift */,
-				0C42D83A83ADEC2D06EEF18D /* CommonComponents.swift */,
-				796EDC52FC6770F9C0924824 /* View+Theme.swift */,
-				7E074966A832B3EEE7413BE8 /* AppTheme.swift */,
-				7C5AA35AB97FE18FAB684E24 /* Info.plist */,
-				103E099495CECE5214A4AF1E /* Localizable.xcstrings */,
-				E2F28611255C7A1C1873380C /* Assets.xcassets */,
+				98B7116B340EEA0A954ACF93 /* AppEnvironment.swift */,
+				7B359004142539A8C74031A4 /* AppState.swift */,
+				8CCBE6D08CF8E1AC86E2434B /* RootView.swift */,
+				9C456FE63BC8EFE5043DEF05 /* SleepingRoutineForZyApp.swift */,
+				47127A8E81B67A78FB2F9A47 /* DomainModels.swift */,
+				10DD8D1D472CE27AD23B510A /* RoutineState.swift */,
+				F8F1F26315F7D4D10BBBBB0C /* SleepRoutineError.swift */,
+				0A557F77FD9731DCD3B489F9 /* SleepTimerState.swift */,
+				5076747728F0C7936DD10BC7 /* AdminAPIClient.swift */,
+				B61EEBE4FA03C0E05DB98195 /* APIEndpoint.swift */,
+				8BAE71B322BEFCBE7B025ED0 /* SpotifyAPIClient.swift */,
+				6CC673B7FF448B6D5858C231 /* SpotifyAuthManager.swift */,
+				F93C84E8C18B3E2FD2C4D8A9 /* SpotifyAuthTypes.swift */,
+				BB15F9431B4353BEF410FDFC /* PersistenceController.swift */,
+				698D6EE9A96676E94C175B95 /* SwiftDataModels.swift */,
+				F48A728B05931283599ADFBD /* Repositories.swift */,
+				64E5A867F0972B10566F5F71 /* AdminCredentialStore.swift */,
+				E6E412342E9F29273FC5A3CF /* KeychainService.swift */,
+				D6F502108E65AC331F933714 /* SpotifyTokenStore.swift */,
+				8FBC8E9573E4DF5F6CD8E9AD /* AlarmAuthorization.swift */,
+				FBA7F04AB77286BBD303C037 /* AlarmScheduler.swift */,
+				9C87739DD598C270D1D014BD /* AlarmSchedulerAlarmKit.swift */,
+				93D6CAE038DD217436BC14D4 /* AudioServiceLive.swift */,
+				649189500DBE831F2402EB77 /* NotificationServiceLive.swift */,
+				D930B3CD6E9304800DD6585C /* ServiceProtocols.swift */,
+				80B1B0D75D3B49D90D3724ED /* SleepAudioSampleFactory.swift */,
+				58EFA18063E343033D2976F0 /* SpotifyServiceLive.swift */,
+				51B455C203A96A879BEB86DE /* StatusCheckInServiceLive.swift */,
+				5E01B5B48960B8C8C44014DE /* AppConfiguration.swift */,
+				CDD8D8D2F5F9C595C9934DCB /* AdminMonitoringController.swift */,
+				CA7FFC681CE9BF315047665F /* AdminView.swift */,
+				48F7E320A009863EE3EB0437 /* AdminViewModel.swift */,
+				1454852EB7E116C3ED6ABA55 /* AlarmEditorView.swift */,
+				08D732D3D979642A1AFB4A5D /* AlarmsView.swift */,
+				AD27297A327CD246864EE643 /* AlarmsViewModel.swift */,
+				B87418E96D95818EC1F696DE /* HomeView.swift */,
+				5AD9DC0735E3FF28391F01DC /* HomeViewModel.swift */,
+				FC45EE6BB421C3F3DC34FDA0 /* OnboardingFlowView.swift */,
+				615BD4C9F84A5FE83C6274C6 /* OnboardingViewModel.swift */,
+				5E7CDB5E685F22005282E655 /* RoutineCoordinator.swift */,
+				6A944E05AA515E9CD74ECAB3 /* SleepRoutineController.swift */,
+				4BD987087387033F15B486FB /* SettingsView.swift */,
+				8DFB2BDB345E5C1A0BBA84DD /* SleepTimerView.swift */,
+				C61ECDF7D0ED6566018D09CF /* SleepTimerViewModel.swift */,
+				5940707A4F2FEF7DF1D8E159 /* SpotifyView.swift */,
+				8700A39A8C355C2A4F1019CF /* SpotifyViewModel.swift */,
+				1533741DECE7C5A390958636 /* CommonComponents.swift */,
+				66AB17EF8507B252CA644393 /* View+Theme.swift */,
+				17A5FDDB3BE83AC16E497BCA /* AppTheme.swift */,
+				C627C5D147E95398B3DE80A5 /* Info.plist */,
+				89687FAF051D02151F39F78D /* Localizable.xcstrings */,
+				6DADC9938E5F550DB628ED04 /* Assets.xcassets */,
 			);
 			name = SleepingRoutineForZy;
 			sourceTree = "<group>";
 		};
-		1C773B5C76BE736CE09DE5A2 /* SleepingRoutineForZyTests */ = {
+		80C04193CEDD1AD975AEAAF8 /* SleepingRoutineForZyTests */ = {
 			isa = PBXGroup;
 			children = (
-				0D19A9D8E0736EAFE2A074DD /* AdminTests.swift */,
-				73487E4EB88268283984E93C /* AlarmTests.swift */,
-				11F6A92667FBF21E04A0A44C /* AudioServiceTests.swift */,
-				075C1CFD75B246653585B301 /* OnboardingViewModelTests.swift */,
-				EC00CB5C1BE6373EDD4412F4 /* PersistenceRepositoryTests.swift */,
-				92C3F42D56186AFC09F90832 /* Phase1FoundationTests.swift */,
-				94BB89F25FE6211B86C9E9DD /* SleepRoutineControllerTests.swift */,
-				CD68BDD7E8C4ABF068D6B0CE /* SpotifyTests.swift */,
+				31E35BAD38F162D8178905A8 /* AdminTests.swift */,
+				D709A4F55F79BE19E2C31E1C /* AlarmTests.swift */,
+				B57E9FAAC139AF886883D7F1 /* AudioServiceTests.swift */,
+				1E697909604D786C9D1DF133 /* OnboardingViewModelTests.swift */,
+				925C047AB7A812951404A569 /* PersistenceRepositoryTests.swift */,
+				A3C4730CC9695AA237DAFC58 /* Phase1FoundationTests.swift */,
+				0A6C7F14D9CD27E4EAB3A86C /* SleepRoutineControllerTests.swift */,
+				491CB7E81433205E81172B70 /* SpotifyTests.swift */,
 			);
 			name = SleepingRoutineForZyTests;
 			sourceTree = "<group>";
 		};
-		B71ED3AE938EC711F439C546 /* SleepingRoutineForZyUITests */ = {
+		B084962269539820E30C209B /* SleepingRoutineForZyUITests */ = {
 			isa = PBXGroup;
 			children = (
-				1F445BA85FBFB64D59F585D6 /* SleepingRoutineForZyUITests.swift */,
+				7A979E33892E72FCC1C06B9A /* SleepingRoutineForZyUITests.swift */,
 			);
 			name = SleepingRoutineForZyUITests;
 			sourceTree = "<group>";
 		};
-		CDDA5B767F78BBC08C9F7DB7 /* Config */ = {
+		FA762EBE9E0A3B8177184CAB /* Config */ = {
 			isa = PBXGroup;
 			children = (
-				04CAD1DE9AA3BB75AA22E6C9 /* Debug.xcconfig */,
-				2FC880FA859D8B37FF06B833 /* Release.xcconfig */,
-				DE299D87159754B222425FF7 /* Shared.xcconfig */,
+				003915493F8E4A2E678C9529 /* Debug.xcconfig */,
+				9AC7328C2D4FA7890E9EBB73 /* Release.xcconfig */,
+				C5FA5DBDCABA1AEA2B0CB9BC /* Shared.xcconfig */,
 			);
 			name = Config;
 			sourceTree = "<group>";
@@ -274,13 +280,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E9CE1D928ECD808E676E6BC9 /* SleepingRoutineForZy */ = {
+		56245C93B68F8BFCF4EEC4BC /* SleepingRoutineForZy */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA7262881E4EC3150198E910 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZy" */;
+			buildConfigurationList = 6A9461A035F3BB4D37C6E2BE /* Build configuration list for PBXNativeTarget "SleepingRoutineForZy" */;
 			buildPhases = (
-				4437DBB02342B3384C87B48A /* Sources */,
-				5AA3E3023E2F521CFDE12453 /* Frameworks */,
-				99498BE413E868B73150442F /* Resources */,
+				63CBAA4898DE4FD8F3831F1C /* Sources */,
+				BDC5FD676A6DCB69CF9A5547 /* Frameworks */,
+				E9D2ECD780F12C432E05E7E3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -288,67 +294,67 @@
 			);
 			name = SleepingRoutineForZy;
 			productName = SleepingRoutineForZy;
-			productReference = 98EAAF93EB3F2E2A43E2CD74 /* SleepingRoutineForZy.app */;
+			productReference = 5E2590FB70F938C73574C5E6 /* SleepingRoutineForZy.app */;
 			productType = "com.apple.product-type.application";
 		};
-		562D9B3A93BA77D8DB434DB6 /* SleepingRoutineForZyTests */ = {
+		6F9C7FBDBA8BE834A038CD02 /* SleepingRoutineForZyTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 5419F1B6BDFC6F518943D655 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyTests" */;
+			buildConfigurationList = 47A4E5638C2C163BD8C66F92 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyTests" */;
 			buildPhases = (
-				6B3AE5213F502EB58636F074 /* Sources */,
-				F5CA805DE7FECE6F9834E312 /* Frameworks */,
+				915647CD23394D2060EB2B2E /* Sources */,
+				F52846E427FD4EDD3DD84798 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				2BE5ED85A3DF4A0BF3FDA755 /* PBXTargetDependency */,
+				83F4565806178930AD317199 /* PBXTargetDependency */,
 			);
 			name = SleepingRoutineForZyTests;
 			productName = SleepingRoutineForZyTests;
-			productReference = 6446439284D6E89B920ECD1E /* SleepingRoutineForZyTests.xctest */;
+			productReference = 822CA643D01A7501BE9C4A0A /* SleepingRoutineForZyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		959CF410BA1FB6936A90FC3B /* SleepingRoutineForZyUITests */ = {
+		EA52A7BF6E2BD8FD544966E0 /* SleepingRoutineForZyUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 25F7364DEBF195273CC56A6F /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyUITests" */;
+			buildConfigurationList = 2A237E8EA87869A71FD95E98 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyUITests" */;
 			buildPhases = (
-				396772D8A01FBC85610AAC9C /* Sources */,
-				6896805022129B8E5DC44108 /* Frameworks */,
+				6EB1AB413D2AC938A8BB9AFE /* Sources */,
+				52FA3972B44B017F8B8A96D7 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				D4FE9F6718F97F87196BDE6A /* PBXTargetDependency */,
+				4BC16DFAC253B41F05269211 /* PBXTargetDependency */,
 			);
 			name = SleepingRoutineForZyUITests;
 			productName = SleepingRoutineForZyUITests;
-			productReference = B1D0069C81755670F016CADD /* SleepingRoutineForZyUITests.xctest */;
+			productReference = 6C4447C644BBD9786149AEFF /* SleepingRoutineForZyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		B408D6D14BD6C873F7D28715 /* Project object */ = {
+		55EF530A80BED84D772542B3 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
-					E9CE1D928ECD808E676E6BC9 = {
+					56245C93B68F8BFCF4EEC4BC = {
 						CreatedOnToolsVersion = 15.0;
 					};
-					562D9B3A93BA77D8DB434DB6 = {
+					6F9C7FBDBA8BE834A038CD02 = {
 						CreatedOnToolsVersion = 15.0;
-						TestTargetID = E9CE1D928ECD808E676E6BC9;
+						TestTargetID = 56245C93B68F8BFCF4EEC4BC;
 					};
-					959CF410BA1FB6936A90FC3B = {
+					EA52A7BF6E2BD8FD544966E0 = {
 						CreatedOnToolsVersion = 15.0;
-						TestTargetID = E9CE1D928ECD808E676E6BC9;
+						TestTargetID = 56245C93B68F8BFCF4EEC4BC;
 					};
 				};
 			};
-			buildConfigurationList = 73CE46385A6C12C23E5671DB /* Build configuration list for PBXProject "SleepingRoutineForZy" */;
+			buildConfigurationList = 4A8DAA5EE85270C26F9F6D2C /* Build configuration list for PBXProject "SleepingRoutineForZy" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -356,142 +362,144 @@
 				en,
 				Base,
 			);
-			mainGroup = 528F5480FBA0BBA164D42FE2;
-			productRefGroup = EC3F28F1C85C787616DFBB9F /* Products */;
+			mainGroup = 8F36595D003A9A57B0EC40A3;
+			productRefGroup = EEA716B804D3FB0EB7C5C0FD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E9CE1D928ECD808E676E6BC9 /* SleepingRoutineForZy */,
-				562D9B3A93BA77D8DB434DB6 /* SleepingRoutineForZyTests */,
-				959CF410BA1FB6936A90FC3B /* SleepingRoutineForZyUITests */,
+				56245C93B68F8BFCF4EEC4BC /* SleepingRoutineForZy */,
+				6F9C7FBDBA8BE834A038CD02 /* SleepingRoutineForZyTests */,
+				EA52A7BF6E2BD8FD544966E0 /* SleepingRoutineForZyUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		99498BE413E868B73150442F /* Resources */ = {
+		E9D2ECD780F12C432E05E7E3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				75F7D7F9D756250666253136 /* Localizable.xcstrings in Resources */,
-				E97FDD523F42254DD9B1054E /* Assets.xcassets in Resources */,
+				14BDC7B18E79FAF786C92A07 /* Localizable.xcstrings in Resources */,
+				BF77FE3B4C6F80DD72A9244C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		4437DBB02342B3384C87B48A /* Sources */ = {
+		63CBAA4898DE4FD8F3831F1C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7746B99F40844AD5415354FF /* AppEnvironment.swift in Sources */,
-				3D5D84E3437C677FAD63DA05 /* AppState.swift in Sources */,
-				FDFD223648B9148996260F7F /* RootView.swift in Sources */,
-				5C0120F44C87328E5E9C3E6E /* SleepingRoutineForZyApp.swift in Sources */,
-				1B1E28A349B1717399C5961B /* DomainModels.swift in Sources */,
-				65C6D9E289D2E2719E91469B /* RoutineState.swift in Sources */,
-				56C3B8D590AD1E91BADD91D2 /* SleepRoutineError.swift in Sources */,
-				E669FF57F6D6C58C706637B9 /* SleepTimerState.swift in Sources */,
-				703D7AAF410319588E024AD1 /* AdminAPIClient.swift in Sources */,
-				F2F0682D5C64043C2F08778C /* APIEndpoint.swift in Sources */,
-				DD0748CF8EA35612CE806D0E /* SpotifyAPIClient.swift in Sources */,
-				DBE1F1AB50D705D91985514A /* SpotifyAuthManager.swift in Sources */,
-				B1AB7B230C5109E731653761 /* SpotifyAuthTypes.swift in Sources */,
-				7F1AB39599B4932341CD608A /* PersistenceController.swift in Sources */,
-				B9BABCF2D329CD3D839014CA /* SwiftDataModels.swift in Sources */,
-				2DD39C441ED1A1FA660E2938 /* Repositories.swift in Sources */,
-				306C545BE08B043C612BD7FB /* AdminCredentialStore.swift in Sources */,
-				938A49935208B664DB3DA727 /* KeychainService.swift in Sources */,
-				41AE24046FE8A8B146B5E243 /* SpotifyTokenStore.swift in Sources */,
-				3D0291EFA92EDBB449EE2EB3 /* AlarmScheduler.swift in Sources */,
-				29419F28CE2B9F8331115225 /* AudioServiceLive.swift in Sources */,
-				C2B8203024A5FAC3DF26CA93 /* NotificationServiceLive.swift in Sources */,
-				0E020FD86ADACF75AEBB53EF /* ServiceProtocols.swift in Sources */,
-				30D1D6CA1AA1F48C1528C53A /* SleepAudioSampleFactory.swift in Sources */,
-				BC8BE3DABD269ED82F2BFEE7 /* SpotifyServiceLive.swift in Sources */,
-				B37EC2AD8694DB773C18465A /* StatusCheckInServiceLive.swift in Sources */,
-				2D52AAEDD325A0F266869D4F /* AppConfiguration.swift in Sources */,
-				1B0090D84F73D47E46B84470 /* AdminMonitoringController.swift in Sources */,
-				878688B7A0E20775E88C9606 /* AdminView.swift in Sources */,
-				7A06EFA04527F1F0ED0B689E /* AdminViewModel.swift in Sources */,
-				03AFC36A8286C71ED25AFB34 /* AlarmEditorView.swift in Sources */,
-				DB300875D813CCE94E4FD820 /* AlarmsView.swift in Sources */,
-				0E46037936A680EB51F55122 /* AlarmsViewModel.swift in Sources */,
-				84BB6CE5ABB3442859D9A799 /* HomeView.swift in Sources */,
-				84D944029D56777B9B2E9656 /* HomeViewModel.swift in Sources */,
-				AD6B0A02ED8D65988617F82E /* OnboardingFlowView.swift in Sources */,
-				261A5955E5E8F4453ACA721E /* OnboardingViewModel.swift in Sources */,
-				81629196CF8DA06667A0E7CC /* RoutineCoordinator.swift in Sources */,
-				4252B2D8946DFFAB01FB359C /* SleepRoutineController.swift in Sources */,
-				E5CDFFB705EB45F90FFBF935 /* SettingsView.swift in Sources */,
-				5D82B7B8D8C1E2265C47FC8B /* SleepTimerView.swift in Sources */,
-				903063AFD44B3B52AEEBA3A2 /* SleepTimerViewModel.swift in Sources */,
-				E9650874B7175FCC3BE44D4B /* SpotifyView.swift in Sources */,
-				0DA12DB107E3A7B7BA522F19 /* SpotifyViewModel.swift in Sources */,
-				5F5D33308D71969D841FE4C8 /* CommonComponents.swift in Sources */,
-				89B57B61293B3CAC95E9A4D5 /* View+Theme.swift in Sources */,
-				84350034FABE7337F08522DD /* AppTheme.swift in Sources */,
+				0BC02689799C63D571AD5A0E /* AppEnvironment.swift in Sources */,
+				4AB41242D2D787E56C777050 /* AppState.swift in Sources */,
+				0E20B210619C21E49F98669B /* RootView.swift in Sources */,
+				54847FFBB2B8FC3BA1F0E471 /* SleepingRoutineForZyApp.swift in Sources */,
+				35042FB828767609A9172CCC /* DomainModels.swift in Sources */,
+				FE1894748C98D3D61E0E6577 /* RoutineState.swift in Sources */,
+				0A11B5A33DAEC8E16975E936 /* SleepRoutineError.swift in Sources */,
+				33FE58B3FFD2ADA1EEAEABDD /* SleepTimerState.swift in Sources */,
+				5F663B42346A88CBDA30581E /* AdminAPIClient.swift in Sources */,
+				8A4C0D81F2BEAE0A071CC33E /* APIEndpoint.swift in Sources */,
+				163B2C345F7FFAFB8C6ECAFF /* SpotifyAPIClient.swift in Sources */,
+				AC419976AF7DF38F235138F6 /* SpotifyAuthManager.swift in Sources */,
+				BF65541354D07C871ED710DF /* SpotifyAuthTypes.swift in Sources */,
+				C96716D014BE6A1D18C2DC38 /* PersistenceController.swift in Sources */,
+				EB7E3D04344FED8A3C4936FF /* SwiftDataModels.swift in Sources */,
+				ACC5E1BE8315F0BA1414FFF6 /* Repositories.swift in Sources */,
+				0FEA29985D90568341F5F333 /* AdminCredentialStore.swift in Sources */,
+				F74AF0827FFD3FDAD936F753 /* KeychainService.swift in Sources */,
+				43EC05C7AA3640E1851FB578 /* SpotifyTokenStore.swift in Sources */,
+				CD0A9AA67303C2AB359718F9 /* AlarmAuthorization.swift in Sources */,
+				CACC0F0D54463C0A4BCA0108 /* AlarmScheduler.swift in Sources */,
+				CE37F5BAF50F9A9B630F3A32 /* AlarmSchedulerAlarmKit.swift in Sources */,
+				1A6FF6B0E10CFC85F95AAC2F /* AudioServiceLive.swift in Sources */,
+				32D2B2439F98BEB5D83E026E /* NotificationServiceLive.swift in Sources */,
+				0910E22BF44223FC4E413B8B /* ServiceProtocols.swift in Sources */,
+				93695EEDEEEE3A6E0D9ACE1D /* SleepAudioSampleFactory.swift in Sources */,
+				0DFA4A4E4659AA9DB942B4B0 /* SpotifyServiceLive.swift in Sources */,
+				F81778A4417227A6C327A2AC /* StatusCheckInServiceLive.swift in Sources */,
+				8866288B15030AAAD93C2F6E /* AppConfiguration.swift in Sources */,
+				2A4112F975632BDB2DD0B6BA /* AdminMonitoringController.swift in Sources */,
+				98BE7E17E0F15E3B845AE9FA /* AdminView.swift in Sources */,
+				4564403F6E690DC54A0F5850 /* AdminViewModel.swift in Sources */,
+				F0E320481F59C726D46289D5 /* AlarmEditorView.swift in Sources */,
+				E65FF87EEAA6025EE45B2874 /* AlarmsView.swift in Sources */,
+				D54EFF5CBA7270BAA5F36973 /* AlarmsViewModel.swift in Sources */,
+				B5AAE5C1E38FCD53334A4C0A /* HomeView.swift in Sources */,
+				5C976AB3B771FF874DB1AAF7 /* HomeViewModel.swift in Sources */,
+				36D2C12ABE08156DA6688AEE /* OnboardingFlowView.swift in Sources */,
+				400BAD93D16A7F93945C169C /* OnboardingViewModel.swift in Sources */,
+				C2ABBEF99E066C83764C7137 /* RoutineCoordinator.swift in Sources */,
+				9E14E87D5FDD3CCC6B87EBDE /* SleepRoutineController.swift in Sources */,
+				69DACC3976745FA926CBC43D /* SettingsView.swift in Sources */,
+				13B2A879C953690F5508996C /* SleepTimerView.swift in Sources */,
+				9EDD40DB4773502EE4F1F11D /* SleepTimerViewModel.swift in Sources */,
+				B1E88F193F5658FE45DA9427 /* SpotifyView.swift in Sources */,
+				87BB6750002C7335600D1277 /* SpotifyViewModel.swift in Sources */,
+				BCF9C67BDA98182D6ED204B2 /* CommonComponents.swift in Sources */,
+				D669ED6F523667B23D07BEE2 /* View+Theme.swift in Sources */,
+				9D38B0E5775BC1991DEA9796 /* AppTheme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6B3AE5213F502EB58636F074 /* Sources */ = {
+		915647CD23394D2060EB2B2E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B739399D6C30B5FC58F43979 /* AdminTests.swift in Sources */,
-				EC7EB528A7A05B31F6AAC8C1 /* AlarmTests.swift in Sources */,
-				B9CA75BDEC7EEDA86D5A9334 /* AudioServiceTests.swift in Sources */,
-				B80C1520F81957FF91522F23 /* OnboardingViewModelTests.swift in Sources */,
-				8B0561827ADF756B10A4E9B6 /* PersistenceRepositoryTests.swift in Sources */,
-				FC7F7B76BBACEBDEFD861365 /* Phase1FoundationTests.swift in Sources */,
-				AB756A61BD8FADDB57F23D51 /* SleepRoutineControllerTests.swift in Sources */,
-				AB67EC98A77F06FA39C5A31B /* SpotifyTests.swift in Sources */,
+				4F092D93B9976D7055D163DD /* AdminTests.swift in Sources */,
+				F8DC0787F772B0ADE85E1522 /* AlarmTests.swift in Sources */,
+				D129AF85CF16C777341A1DDF /* AudioServiceTests.swift in Sources */,
+				C624B4B0FAD4B8CF0BF8AC79 /* OnboardingViewModelTests.swift in Sources */,
+				ACC72D6D1B0C3ABEA7F7EDC7 /* PersistenceRepositoryTests.swift in Sources */,
+				B44E05452673679A2D031A14 /* Phase1FoundationTests.swift in Sources */,
+				C789D57E57306B3617A2D099 /* SleepRoutineControllerTests.swift in Sources */,
+				9F67E797E57379C6E73280AC /* SpotifyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		396772D8A01FBC85610AAC9C /* Sources */ = {
+		6EB1AB413D2AC938A8BB9AFE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3B8BDBBBC21346A581501C57 /* SleepingRoutineForZyUITests.swift in Sources */,
+				6F4F17851646052E492CDEF2 /* SleepingRoutineForZyUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXContainerItemProxy section */
-		FB9ABE1C1A205FE015E8A047 /* PBXContainerItemProxy */ = {
+		8DA7A8E242181A28A2C6A507 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = B408D6D14BD6C873F7D28715 /* Project object */;
+			containerPortal = 55EF530A80BED84D772542B3 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = E9CE1D928ECD808E676E6BC9;
+			remoteGlobalIDString = 56245C93B68F8BFCF4EEC4BC;
 			remoteInfo = SleepingRoutineForZy;
 		};
-		B9BB5CA09D54E5F602695EA2 /* PBXContainerItemProxy */ = {
+		E7AC0752D1A6A7FBD7D41CC8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = B408D6D14BD6C873F7D28715 /* Project object */;
+			containerPortal = 55EF530A80BED84D772542B3 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = E9CE1D928ECD808E676E6BC9;
+			remoteGlobalIDString = 56245C93B68F8BFCF4EEC4BC;
 			remoteInfo = SleepingRoutineForZy;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
-		2BE5ED85A3DF4A0BF3FDA755 /* PBXTargetDependency */ = {
+		83F4565806178930AD317199 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E9CE1D928ECD808E676E6BC9 /* SleepingRoutineForZy */;
-			targetProxy = FB9ABE1C1A205FE015E8A047 /* PBXContainerItemProxy */;
+			target = 56245C93B68F8BFCF4EEC4BC /* SleepingRoutineForZy */;
+			targetProxy = 8DA7A8E242181A28A2C6A507 /* PBXContainerItemProxy */;
 		};
-		D4FE9F6718F97F87196BDE6A /* PBXTargetDependency */ = {
+		4BC16DFAC253B41F05269211 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E9CE1D928ECD808E676E6BC9 /* SleepingRoutineForZy */;
-			targetProxy = B9BB5CA09D54E5F602695EA2 /* PBXContainerItemProxy */;
+			target = 56245C93B68F8BFCF4EEC4BC /* SleepingRoutineForZy */;
+			targetProxy = E7AC0752D1A6A7FBD7D41CC8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		E0E29D324F7831C4506BA791 /* Debug */ = {
+		BD353E2122B05CDD4421185E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -510,7 +518,7 @@
 			};
 			name = Debug;
 		};
-		594F455B51BFB873D9635324 /* Release */ = {
+		9FA989F7A237B1089FBDB8B2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -526,9 +534,9 @@
 			};
 			name = Release;
 		};
-		AF91CD3947F38E2500B217B5 /* Debug */ = {
+		D1FB06EC8CA1837ECB9B900F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 04CAD1DE9AA3BB75AA22E6C9 /* Debug.xcconfig */;
+			baseConfigurationReference = 003915493F8E4A2E678C9529 /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -555,9 +563,9 @@
 			};
 			name = Debug;
 		};
-		D8BF2CB5838688B40505BB0C /* Release */ = {
+		20C4190366BDCF9DBDD58E85 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2FC880FA859D8B37FF06B833 /* Release.xcconfig */;
+			baseConfigurationReference = 9AC7328C2D4FA7890E9EBB73 /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -584,7 +592,7 @@
 			};
 			name = Release;
 		};
-		790AF59AD6F2D4CEC26FD8D0 /* Debug */ = {
+		DD7CD37756372C729363718C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -601,7 +609,7 @@
 			};
 			name = Debug;
 		};
-		D9FA1EB1F593E71165292B5B /* Release */ = {
+		9ECF68EE28BF61754F217476 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -618,7 +626,7 @@
 			};
 			name = Release;
 		};
-		3191DB51FC00DEC041AECEBB /* Debug */ = {
+		F9BE0FE2FA0408C40E39E868 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -633,7 +641,7 @@
 			};
 			name = Debug;
 		};
-		C7987F491D5BD367730A3ABA /* Release */ = {
+		05FDB66D43465040179807F6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -651,43 +659,43 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		73CE46385A6C12C23E5671DB /* Build configuration list for PBXProject "SleepingRoutineForZy" */ = {
+		4A8DAA5EE85270C26F9F6D2C /* Build configuration list for PBXProject "SleepingRoutineForZy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E0E29D324F7831C4506BA791 /* Debug */,
-				594F455B51BFB873D9635324 /* Release */,
+				BD353E2122B05CDD4421185E /* Debug */,
+				9FA989F7A237B1089FBDB8B2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AA7262881E4EC3150198E910 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZy" */ = {
+		6A9461A035F3BB4D37C6E2BE /* Build configuration list for PBXNativeTarget "SleepingRoutineForZy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AF91CD3947F38E2500B217B5 /* Debug */,
-				D8BF2CB5838688B40505BB0C /* Release */,
+				D1FB06EC8CA1837ECB9B900F /* Debug */,
+				20C4190366BDCF9DBDD58E85 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		5419F1B6BDFC6F518943D655 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyTests" */ = {
+		47A4E5638C2C163BD8C66F92 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				790AF59AD6F2D4CEC26FD8D0 /* Debug */,
-				D9FA1EB1F593E71165292B5B /* Release */,
+				DD7CD37756372C729363718C /* Debug */,
+				9ECF68EE28BF61754F217476 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		25F7364DEBF195273CC56A6F /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyUITests" */ = {
+		2A237E8EA87869A71FD95E98 /* Build configuration list for PBXNativeTarget "SleepingRoutineForZyUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3191DB51FC00DEC041AECEBB /* Debug */,
-				C7987F491D5BD367730A3ABA /* Release */,
+				F9BE0FE2FA0408C40E39E868 /* Debug */,
+				05FDB66D43465040179807F6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = B408D6D14BD6C873F7D28715 /* Project object */;
+	rootObject = 55EF530A80BED84D772542B3 /* Project object */;
 }

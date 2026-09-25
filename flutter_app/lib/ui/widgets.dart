@@ -39,14 +39,13 @@ class ZyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
+    return Material(
+      color: AppTheme.card,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: SizedBox(width: double.infinity, child: child),
       ),
-      child: child,
     );
   }
 }

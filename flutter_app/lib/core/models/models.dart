@@ -121,8 +121,9 @@ class SleepAlarm {
     required this.minute,
     this.label = 'Wake up',
     this.isEnabled = true,
-    this.repeatDays = const {1, 2, 3, 4, 5},
-  });
+    /// Dart [DateTime.weekday]: Mon=1 … Sun=7. Empty = once (next matching time).
+    Set<int>? repeatDays,
+  }) : repeatDays = repeatDays ?? <int>{};
 
   final String id;
   int hour;
@@ -130,6 +131,32 @@ class SleepAlarm {
   String label;
   bool isEnabled;
   Set<int> repeatDays;
+
+  static const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  String get repeatSummary {
+    if (repeatDays.isEmpty) return 'Once';
+    final sorted = repeatDays.toList()..sort();
+    if (sorted.length == 7) return 'Every day';
+    if (sorted.length == 5 && sorted.join() == '12345') return 'Weekdays';
+    if (sorted.length == 2 && sorted.join() == '67') return 'Weekends';
+    return sorted.map((d) => weekdayLabels[d - 1]).join(' ');
+  }
+
+  /// Next local DateTime this alarm should fire (null if disabled).
+  DateTime? nextFireAfter([DateTime? from]) {
+    if (!isEnabled) return null;
+    final now = from ?? DateTime.now();
+    var candidate = DateTime(now.year, now.month, now.day, hour, minute);
+    if (!candidate.isAfter(now)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    if (repeatDays.isEmpty) return candidate;
+    while (!repeatDays.contains(candidate.weekday)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return candidate;
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -141,7 +168,7 @@ class SleepAlarm {
       };
 
   factory SleepAlarm.fromJson(Map<String, dynamic> json) {
-    final days = (json['repeatDays'] as List?)?.cast<int>() ?? const [1, 2, 3, 4, 5];
+    final days = (json['repeatDays'] as List?)?.cast<int>() ?? const <int>[];
     return SleepAlarm(
       id: json['id'] as String,
       hour: json['hour'] as int,
@@ -149,6 +176,23 @@ class SleepAlarm {
       label: json['label'] as String? ?? 'Wake up',
       isEnabled: json['isEnabled'] as bool? ?? true,
       repeatDays: days.toSet(),
+    );
+  }
+
+  SleepAlarm copyWith({
+    int? hour,
+    int? minute,
+    String? label,
+    bool? isEnabled,
+    Set<int>? repeatDays,
+  }) {
+    return SleepAlarm(
+      id: id,
+      hour: hour ?? this.hour,
+      minute: minute ?? this.minute,
+      label: label ?? this.label,
+      isEnabled: isEnabled ?? this.isEnabled,
+      repeatDays: repeatDays ?? Set<int>.from(this.repeatDays),
     );
   }
 }

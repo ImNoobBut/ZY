@@ -115,7 +115,7 @@ struct AlarmEditorView: View {
                         Text(
                             String(
                                 localized: "alarms.editor.limitation",
-                                defaultValue: "Delivery depends on notification permission and iOS scheduling. This is not Apple Clock."
+                                defaultValue: "Delivery depends on alarm permission and iOS scheduling."
                             )
                         )
                         .font(AppTheme.Typography.caption)

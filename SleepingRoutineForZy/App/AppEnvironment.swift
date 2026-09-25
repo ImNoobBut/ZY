@@ -12,6 +12,7 @@ struct AppEnvironment {
     let audioService: any AudioService
     let spotifyService: any SpotifyService
     let notificationService: any NotificationService
+    let alarmAuthorization: any AlarmAuthorizationService
     let alarmScheduler: any AlarmScheduler
     let deviceStatusService: any DeviceStatusService
     let statusCheckInService: any StatusCheckInService
@@ -59,9 +60,12 @@ struct AppEnvironment {
         let notificationService: any NotificationService = inMemory
             ? NotificationServiceMock(grantResult: true, statusResult: true)
             : NotificationServiceLive()
+        let alarmAuthorization: any AlarmAuthorizationService = inMemory
+            ? AlarmAuthorizationServiceMock(usesAlarmKit: false, grantResult: true, statusResult: true)
+            : AlarmAuthorizationServiceLive(notificationService: notificationService)
         let alarmScheduler: any AlarmScheduler = inMemory
             ? AlarmSchedulerMock()
-            : AlarmSchedulerLive(notificationService: notificationService)
+            : AlarmSchedulerFactory.make(notificationService: notificationService)
 
         let statusCheckInService: any StatusCheckInService = {
             if inMemory {
@@ -106,6 +110,7 @@ struct AppEnvironment {
             audioService: audioService,
             spotifyService: spotifyService,
             notificationService: notificationService,
+            alarmAuthorization: alarmAuthorization,
             alarmScheduler: alarmScheduler,
             deviceStatusService: DeviceStatusServiceLive(),
             statusCheckInService: statusCheckInService,

@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:app_links/app_links.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'core/config/app_config.dart';
 import 'core/models/models.dart';
 import 'core/services/admin_service.dart';
+import 'core/services/alarm_scheduler.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
 import 'core/storage/local_store.dart';
@@ -19,6 +22,7 @@ class AppState extends ChangeNotifier {
     required this.spotify,
     required this.admin,
     required this.audio,
+    required this.alarmScheduler,
   });
 
   final AppConfig config;
@@ -26,6 +30,7 @@ class AppState extends ChangeNotifier {
   final SpotifyService spotify;
   final AdminService admin;
   final QuietAudioService audio;
+  final AlarmScheduler alarmScheduler;
 
   UserPreferences preferences = UserPreferences();
   List<SleepAlarm> alarms = [];
@@ -36,8 +41,10 @@ class AppState extends ChangeNotifier {
   String? infoMessage;
   bool busy = false;
   bool ready = false;
+  bool? alarmsPermissionGranted;
 
   Timer? _ticker;
+  StreamSubscription<Uri>? _linkSub;
 
   Future<void> bootstrap() async {
     preferences = await store.loadPreferences();
@@ -45,8 +52,9 @@ class AppState extends ChangeNotifier {
     activeRoutine = await store.loadActiveRoutine();
     await spotify.restore();
     await admin.restore();
+    await alarmScheduler.initialize();
+    alarmsPermissionGranted = await alarmScheduler.hasPermission();
 
-    // Finish Spotify OAuth if Spotify redirected back to our web callback URL.
     try {
       final completed = await spotify.tryCompleteFromCurrentUri(Uri.base);
       if (completed) {
@@ -55,6 +63,12 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       errorMessage = '$e';
     }
+
+    if (!kIsWeb) {
+      await _listenForSpotifyDeepLinks();
+    }
+
+    await alarmScheduler.reconcile(alarms);
 
     _reconcileRoutine();
     _refreshMusicLabel();
@@ -66,11 +80,52 @@ class AppState extends ChangeNotifier {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
   }
 
+  Future<void> _listenForSpotifyDeepLinks() async {
+    final appLinks = AppLinks();
+    try {
+      final initial = await appLinks.getInitialLink();
+      if (initial != null) {
+        await _handleIncomingUri(initial);
+      }
+    } catch (_) {}
+    _linkSub = appLinks.uriLinkStream.listen((uri) {
+      unawaited(_handleIncomingUri(uri));
+    });
+  }
+
+  Future<void> _handleIncomingUri(Uri uri) async {
+    try {
+      final completed = await spotify.tryCompleteFromCurrentUri(uri);
+      if (completed) {
+        infoMessage = 'Spotify connected.';
+        errorMessage = null;
+        _refreshMusicLabel();
+        notifyListeners();
+      }
+    } catch (e) {
+      errorMessage = '$e';
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _ticker?.cancel();
+    _linkSub?.cancel();
     audio.dispose();
     super.dispose();
+  }
+
+  Future<void> requestAlarmPermission() async {
+    alarmsPermissionGranted = await alarmScheduler.requestPermission();
+    if (alarmsPermissionGranted == true) {
+      await alarmScheduler.reconcile(alarms);
+      infoMessage = 'Alarm permission granted.';
+      errorMessage = null;
+    } else {
+      errorMessage = 'Alarm permission is off. Wake alarms need access to work.';
+    }
+    notifyListeners();
   }
 
   Future<void> completeOnboarding({
@@ -95,9 +150,12 @@ class AppState extends ChangeNotifier {
           id: const Uuid().v4(),
           hour: wakeHour,
           minute: wakeMinute,
+          // Default wake routine: Mon–Fri (1–5). Edit days on the Alarms tab.
+          repeatDays: {1, 2, 3, 4, 5},
         ),
       ];
       await store.saveAlarms(alarms);
+      await alarmScheduler.reconcile(alarms);
     }
     notifyListeners();
   }
@@ -112,19 +170,26 @@ class AppState extends ChangeNotifier {
     if (busy) return;
     busy = true;
     errorMessage = null;
+    infoMessage = null;
     notifyListeners();
     try {
       routineState = RoutineState.starting;
       final useSpotify = spotify.isAuthenticated && preferences.selectedSpotifyUri != null;
+      var playingSpotify = false;
       if (useSpotify) {
         try {
           await spotify.play(preferences.selectedSpotifyUri!);
           musicLabel = preferences.selectedSpotifyTitle ?? 'Spotify';
           routineState = RoutineState.playing;
+          playingSpotify = true;
         } catch (e) {
-          routineState = RoutineState.failed;
-          errorMessage = e.toString();
-          return;
+          // Keep bedtime usable on web: fall back to in-app quiet audio.
+          await audio.play();
+          musicLabel = 'Quiet night tone (Spotify device offline)';
+          routineState = RoutineState.playing;
+          infoMessage =
+              'Spotify had no active device, so quiet in-app audio started instead. '
+              'Open Spotify, play a track once, then retry for Spotify playback.\n$e';
         }
       } else {
         await audio.play();
@@ -138,7 +203,7 @@ class AppState extends ChangeNotifier {
       activeRoutine = SleepRoutine(
         id: const Uuid().v4(),
         sleepTimerDurationSeconds: duration,
-        musicSource: useSpotify ? MusicSource.spotify : MusicSource.local,
+        musicSource: playingSpotify ? MusicSource.spotify : MusicSource.local,
         startedAt: now,
         endsAt: now.add(Duration(seconds: duration)),
         alarmId: enabledAlarm?.id,
@@ -215,6 +280,24 @@ class AppState extends ChangeNotifier {
   Future<void> saveAlarms(List<SleepAlarm> next) async {
     alarms = next;
     await store.saveAlarms(alarms);
+    try {
+      await alarmScheduler.reconcile(alarms);
+      alarmsPermissionGranted = await alarmScheduler.hasPermission();
+      errorMessage = null;
+      final enabled = alarms.where((a) => a.isEnabled).toList();
+      if (enabled.isNotEmpty) {
+        final nextFire = enabled.map((a) => a.nextFireAfter()).whereType<DateTime>().toList()
+          ..sort();
+        if (nextFire.isNotEmpty) {
+          infoMessage =
+              'Alarms updated. Next: ${DateFormat('EEE HH:mm').format(nextFire.first)}'
+              '${alarmScheduler.isBestEffortOnly ? ' (keep this tab open on web)' : ''}';
+        }
+      }
+    } catch (e) {
+      errorMessage = 'Could not schedule alarms: $e';
+      alarmsPermissionGranted = await alarmScheduler.hasPermission();
+    }
     notifyListeners();
   }
 
@@ -223,7 +306,7 @@ class AppState extends ChangeNotifier {
     preferences.selectedSpotifyTitle = title;
     await store.savePreferences(preferences);
     _refreshMusicLabel();
-    infoMessage = 'Selected “$title” for bedtime.';
+    infoMessage = 'Selected "$title" for bedtime.';
     notifyListeners();
   }
 
@@ -237,7 +320,6 @@ class AppState extends ChangeNotifier {
       return;
     }
 
-    // Register first; only persist opt-in after the backend accepts it.
     try {
       if (!admin.isRegistered) {
         await admin.register(displayName: 'Zy Flutter');

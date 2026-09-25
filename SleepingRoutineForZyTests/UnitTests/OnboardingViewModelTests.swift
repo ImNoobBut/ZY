@@ -7,7 +7,7 @@ final class OnboardingViewModelTests: XCTestCase {
     private var container: ModelContainer!
     private var preferencesRepository: PreferencesRepositoryLive!
     private var alarmRepository: AlarmRepositoryLive!
-    private var notifications: NotificationServiceMock!
+    private var alarmAuthorization: AlarmAuthorizationServiceMock!
     private var spotify: SpotifyServiceStub!
 
     override func setUpWithError() throws {
@@ -15,14 +15,14 @@ final class OnboardingViewModelTests: XCTestCase {
         let context = ModelContext(container)
         preferencesRepository = PreferencesRepositoryLive(context: context)
         alarmRepository = AlarmRepositoryLive(context: context)
-        notifications = NotificationServiceMock(grantResult: true, statusResult: false)
+        alarmAuthorization = AlarmAuthorizationServiceMock(usesAlarmKit: false, grantResult: true, statusResult: false)
         spotify = SpotifyServiceStub()
     }
 
     override func tearDownWithError() throws {
         preferencesRepository = nil
         alarmRepository = nil
-        notifications = nil
+        alarmAuthorization = nil
         spotify = nil
         container = nil
     }
@@ -31,7 +31,7 @@ final class OnboardingViewModelTests: XCTestCase {
         OnboardingViewModel(
             preferencesRepository: preferencesRepository,
             alarmRepository: alarmRepository,
-            notificationService: notifications,
+            alarmAuthorization: alarmAuthorization,
             spotifyService: spotify,
             calendar: Calendar(identifier: .gregorian),
             now: Date(timeIntervalSince1970: 1_700_000_000)
@@ -42,7 +42,7 @@ final class OnboardingViewModelTests: XCTestCase {
         let viewModel = makeViewModel()
         XCTAssertEqual(viewModel.step, .welcome)
         viewModel.goNext()
-        XCTAssertEqual(viewModel.step, .notifications)
+        XCTAssertEqual(viewModel.step, .alarms)
         viewModel.goNext()
         XCTAssertEqual(viewModel.step, .spotify)
         viewModel.goNext()
@@ -51,20 +51,20 @@ final class OnboardingViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.step, .spotify)
     }
 
-    func testNotificationPermissionGranted() async {
+    func testAlarmPermissionGranted() async {
         let viewModel = makeViewModel()
         viewModel.goNext()
-        await viewModel.requestNotificationPermission()
-        XCTAssertEqual(notifications.requestCount, 1)
+        await viewModel.requestAlarmPermission()
+        XCTAssertEqual(alarmAuthorization.requestCount, 1)
         XCTAssertEqual(viewModel.notificationGranted, true)
         XCTAssertNil(viewModel.errorMessage)
     }
 
-    func testNotificationPermissionDeniedStoresMessage() async {
-        notifications.grantResult = false
+    func testAlarmPermissionDeniedStoresMessage() async {
+        alarmAuthorization.grantResult = false
         let viewModel = makeViewModel()
         viewModel.goNext()
-        await viewModel.requestNotificationPermission()
+        await viewModel.requestAlarmPermission()
         XCTAssertEqual(viewModel.notificationGranted, false)
         XCTAssertNotNil(viewModel.errorMessage)
     }

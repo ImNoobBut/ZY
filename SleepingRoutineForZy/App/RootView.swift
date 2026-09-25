@@ -13,7 +13,7 @@ struct RootView: View {
                     viewModel: OnboardingViewModel(
                         preferencesRepository: environment.preferencesRepository,
                         alarmRepository: environment.alarmRepository,
-                        notificationService: environment.notificationService,
+                        alarmAuthorization: environment.alarmAuthorization,
                         spotifyService: environment.spotifyService,
                         alarmScheduler: environment.alarmScheduler
                     )

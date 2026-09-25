@@ -3,7 +3,7 @@ import Observation
 
 enum OnboardingStep: Int, CaseIterable, Equatable {
     case welcome
-    case notifications
+    case alarms
     case spotify
     case preferences
 }
@@ -26,7 +26,7 @@ final class OnboardingViewModel {
 
     private let preferencesRepository: any PreferencesRepository
     private let alarmRepository: any AlarmRepository
-    private let notificationService: any NotificationService
+    private let alarmAuthorization: any AlarmAuthorizationService
     private let spotifyService: any SpotifyService
     private let alarmScheduler: (any AlarmScheduler)?
     private let calendar: Calendar
@@ -34,7 +34,7 @@ final class OnboardingViewModel {
     init(
         preferencesRepository: any PreferencesRepository,
         alarmRepository: any AlarmRepository,
-        notificationService: any NotificationService,
+        alarmAuthorization: any AlarmAuthorizationService,
         spotifyService: any SpotifyService,
         alarmScheduler: (any AlarmScheduler)? = nil,
         calendar: Calendar = .current,
@@ -42,7 +42,7 @@ final class OnboardingViewModel {
     ) {
         self.preferencesRepository = preferencesRepository
         self.alarmRepository = alarmRepository
-        self.notificationService = notificationService
+        self.alarmAuthorization = alarmAuthorization
         self.spotifyService = spotifyService
         self.alarmScheduler = alarmScheduler
         self.calendar = calendar
@@ -53,6 +53,8 @@ final class OnboardingViewModel {
         bedtime = Self.date(from: existing.preferredBedtime, fallbackHour: 22, fallbackMinute: 0, calendar: calendar, now: now)
         wakeTime = Self.date(from: existing.preferredWakeTime, fallbackHour: 7, fallbackMinute: 0, calendar: calendar, now: now)
     }
+
+    var usesAlarmKit: Bool { alarmAuthorization.usesAlarmKit }
 
     var canGoBack: Bool {
         step != .welcome
@@ -71,13 +73,13 @@ final class OnboardingViewModel {
     }
 
     @MainActor
-    func requestNotificationPermission() async {
+    func requestAlarmPermission() async {
         isRequestingPermission = true
         errorMessage = nil
         defer { isRequestingPermission = false }
 
         do {
-            let granted = try await notificationService.requestAuthorization()
+            let granted = try await alarmAuthorization.requestAuthorization()
             notificationGranted = granted
             if !granted {
                 errorMessage = SleepRoutineError.notificationPermissionDenied.errorDescription
@@ -86,6 +88,12 @@ final class OnboardingViewModel {
             notificationGranted = false
             errorMessage = SleepRoutineError.notificationPermissionDenied.errorDescription
         }
+    }
+
+    /// Legacy name used by older call sites / tests.
+    @MainActor
+    func requestNotificationPermission() async {
+        await requestAlarmPermission()
     }
 
     @MainActor

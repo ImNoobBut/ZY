@@ -30,7 +30,7 @@ enum SleepRoutineError: LocalizedError, Equatable {
         case .notificationPermissionDenied:
             return String(
                 localized: "error.notification_permission_denied",
-                defaultValue: "Notifications are turned off. Alarms and reminders need permission to work."
+                defaultValue: "Alarm permission is turned off. Wake alarms need access to work."
             )
         case .alarmSchedulingFailed:
             return String(localized: "error.alarm_scheduling_failed", defaultValue: "We couldn't schedule that alarm. Please try again.")

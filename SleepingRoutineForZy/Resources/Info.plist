@@ -63,5 +63,7 @@
 	<string>$(SPOTIFY_REDIRECT_URI)</string>
 	<key>BACKEND_BASE_URL</key>
 	<string>$(BACKEND_BASE_URL)</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Sleeping Routine for Zy schedules wake alarms so Zy can keep a steady morning routine.</string>
 </dict>
 </plist>

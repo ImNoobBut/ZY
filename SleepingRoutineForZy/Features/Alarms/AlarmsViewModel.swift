@@ -10,22 +10,24 @@ final class AlarmsViewModel {
 
     private let alarmRepository: any AlarmRepository
     private let alarmScheduler: any AlarmScheduler
-    private let notificationService: any NotificationService
+    private let alarmAuthorization: any AlarmAuthorizationService
+
+    var usesAlarmKit: Bool { alarmAuthorization.usesAlarmKit }
 
     init(
         alarmRepository: any AlarmRepository,
         alarmScheduler: any AlarmScheduler,
-        notificationService: any NotificationService
+        alarmAuthorization: any AlarmAuthorizationService
     ) {
         self.alarmRepository = alarmRepository
         self.alarmScheduler = alarmScheduler
-        self.notificationService = notificationService
+        self.alarmAuthorization = alarmAuthorization
     }
 
     @MainActor
     func refresh() async {
         alarms = alarmRepository.fetchAll()
-        notificationsAllowed = await notificationService.authorizationStatus()
+        notificationsAllowed = await alarmAuthorization.authorizationStatus()
         infoMessage = nil
         errorMessage = nil
     }
@@ -33,7 +35,7 @@ final class AlarmsViewModel {
     @MainActor
     func requestPermissionIfNeeded() async {
         do {
-            let granted = try await notificationService.requestAuthorization()
+            let granted = try await alarmAuthorization.requestAuthorization()
             notificationsAllowed = granted
             if !granted {
                 errorMessage = SleepRoutineError.notificationPermissionDenied.errorDescription
@@ -50,7 +52,7 @@ final class AlarmsViewModel {
         updated.isEnabled = isEnabled
         await save(updated, successInfo: isEnabled
             ? String(localized: "alarms.enabled", defaultValue: "Alarm on")
-            : String(localized: "alarms.disabled", defaultValue: "Alarm off — notification removed"))
+            : String(localized: "alarms.disabled", defaultValue: "Alarm off — schedule removed"))
     }
 
     @MainActor
@@ -62,7 +64,7 @@ final class AlarmsViewModel {
             try await alarmScheduler.schedule(alarm)
             alarms = alarmRepository.fetchAll()
             infoMessage = successInfo
-            notificationsAllowed = await notificationService.authorizationStatus()
+            notificationsAllowed = await alarmAuthorization.authorizationStatus()
         } catch let error as SleepRoutineError {
             // Persist even if scheduling fails so the user doesn't lose edits; surface recovery.
             try? alarmRepository.save(alarm)

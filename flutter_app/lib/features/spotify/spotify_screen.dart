@@ -16,6 +16,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
   final searchController = TextEditingController();
   List playlists = [];
   List tracks = [];
+  List<String> devices = [];
   String? error;
   bool busy = false;
 
@@ -31,6 +32,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
     setState(() => busy = true);
     try {
       playlists = await state.spotify.getPlaylists();
+      devices = await state.spotify.listDeviceNames();
       error = null;
     } catch (e) {
       error = '$e';
@@ -55,11 +57,10 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
         children: [
           ZyCard(
             child: Text(
-              'Sign-in uses Spotify OAuth (PKCE). Playback needs Premium + an active Spotify device.\n\n'
-              'Add this exact Redirect URI in the Spotify Developer Dashboard:\n'
-              '${state.config.spotifyRedirectUri}\n\n'
-              '(Keep the iOS URI too: sleepingroutineforzy://spotify-callback)\n\n'
-              'Or use Demo connect for local UI testing without OAuth.',
+              'Login succeeds when you return with ?code=…\n\n'
+              'A play 404 means no Spotify Connect device. Open Spotify on phone/desktop, '
+              'play any song once, then tap Refresh devices.\n\n'
+              'Ignore browser-extension console noise (Notta / Phantom / contentscript).',
               style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
             ),
           ),
@@ -94,8 +95,25 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                     state.preferences.selectedSpotifyTitle ?? 'Nothing selected yet',
                     style: const TextStyle(color: AppTheme.secondaryText),
                   ),
+                  const SizedBox(height: 12),
+                  Text(
+                    devices.isEmpty
+                        ? 'Devices: none — open Spotify and play a track once.'
+                        : 'Devices:\n${devices.map((d) => '• $d').join('\n')}',
+                    style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
+                  ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              label: 'Open Spotify',
+              onPressed: () => state.spotify.openSpotifyApp(),
+            ),
+            const SizedBox(height: 8),
+            SecondaryButton(
+              label: 'Refresh devices',
+              onPressed: _refresh,
             ),
             const SizedBox(height: 12),
             Row(
@@ -146,6 +164,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                 await state.spotify.logout();
                 playlists = [];
                 tracks = [];
+                devices = [];
                 setState(() {});
               },
             ),

@@ -67,6 +67,10 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(state.errorMessage!, style: const TextStyle(color: AppTheme.destructive)),
           ],
+          if (state.infoMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(state.infoMessage!, style: const TextStyle(color: AppTheme.secondaryText)),
+          ],
           const SizedBox(height: 16),
           const Text(
             'The sleep timer uses saved start and end times, so it stays accurate after leaving the app.',

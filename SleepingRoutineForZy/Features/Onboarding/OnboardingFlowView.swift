@@ -22,8 +22,8 @@ struct OnboardingFlowView: View {
                     switch viewModel.step {
                     case .welcome:
                         welcomePage
-                    case .notifications:
-                        notificationsPage
+                    case .alarms:
+                        alarmsPage
                     case .spotify:
                         spotifyPage
                     case .preferences:
@@ -71,19 +71,23 @@ struct OnboardingFlowView: View {
         }
     }
 
-    private var notificationsPage: some View {
+    private var alarmsPage: some View {
         OnboardingPageScaffold(
-            title: String(localized: "onboarding.notifications.title", defaultValue: "Stay on schedule"),
+            title: String(localized: "onboarding.alarms.title", defaultValue: "Stay on schedule"),
             subtitle: String(
-                localized: "onboarding.notifications.subtitle",
-                defaultValue: "Notifications allow your alarms and sleep reminders to work."
+                localized: "onboarding.alarms.subtitle",
+                defaultValue: viewModel.usesAlarmKit
+                    ? "Allow wake alarms so Zy can use system alarms that break through Focus and silent mode."
+                    : "Allow notifications so wake reminders can appear."
             )
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 Text(
                     String(
-                        localized: "onboarding.notifications.limitation",
-                        defaultValue: "Alarms use iOS notifications. They are helpful, but not identical to Apple Clock."
+                        localized: "onboarding.alarms.limitation",
+                        defaultValue: viewModel.usesAlarmKit
+                            ? "On iOS 26+, wake times use AlarmKit (system alarms). Older iOS versions use local notifications."
+                            : "On this iOS version, alarms use local notifications. Delivery depends on permission and system behavior."
                     )
                 )
                 .font(AppTheme.Typography.caption)
@@ -92,15 +96,24 @@ struct OnboardingFlowView: View {
                 if let notificationGranted = viewModel.notificationGranted {
                     Text(
                         notificationGranted
-                            ? String(localized: "onboarding.notifications.granted", defaultValue: "Notifications are on.")
-                            : String(localized: "onboarding.notifications.denied", defaultValue: "Notifications are off. You can enable them later in Settings.")
+                            ? String(
+                                localized: "onboarding.alarms.granted",
+                                defaultValue: viewModel.usesAlarmKit
+                                    ? "Alarm access is on."
+                                    : "Notifications are on."
+                            )
+                            : String(
+                                localized: "onboarding.alarms.denied",
+                                defaultValue: viewModel.usesAlarmKit
+                                    ? "Alarm access is off. You can enable it later in Settings."
+                                    : "Notifications are off. You can enable them later in Settings."
+                            )
                     )
                     .font(AppTheme.Typography.body)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .accessibilityLabel(notificationGranted ? "Notifications on" : "Notifications off")
                 }
 
-                if let errorMessage = viewModel.errorMessage, viewModel.step == .notifications {
+                if let errorMessage = viewModel.errorMessage, viewModel.step == .alarms {
                     Text(errorMessage)
                         .font(AppTheme.Typography.caption)
                         .foregroundStyle(AppTheme.destructive)
@@ -225,11 +238,11 @@ struct OnboardingFlowView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
 
-        case .notifications:
+        case .alarms:
             Button {
                 Task {
                     if viewModel.notificationGranted == nil {
-                        await viewModel.requestNotificationPermission()
+                        await viewModel.requestAlarmPermission()
                     }
                     viewModel.goNext()
                 }
@@ -242,7 +255,12 @@ struct OnboardingFlowView: View {
                 } else {
                     Text(
                         viewModel.notificationGranted == nil
-                            ? String(localized: "onboarding.notifications.enable", defaultValue: "Enable notifications")
+                            ? String(
+                                localized: "onboarding.alarms.enable",
+                                defaultValue: viewModel.usesAlarmKit
+                                    ? "Allow alarms"
+                                    : "Enable notifications"
+                            )
                             : String(localized: "onboarding.continue", defaultValue: "Continue")
                     )
                 }
@@ -332,7 +350,7 @@ private struct OnboardingPageScaffold<Content: View>: View {
     let viewModel = OnboardingViewModel(
         preferencesRepository: environment.preferencesRepository,
         alarmRepository: environment.alarmRepository,
-        notificationService: environment.notificationService,
+        alarmAuthorization: environment.alarmAuthorization,
         spotifyService: environment.spotifyService
     )
     return OnboardingFlowView(viewModel: viewModel)

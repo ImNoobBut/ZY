@@ -3,24 +3,24 @@
    <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
-            <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "E9CE1D928ECD808E676E6BC9" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
+            <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "56245C93B68F8BFCF4EEC4BC" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES" shouldAutocreateTestPlan = "YES">
       <Testables>
-         <TestableReference skipped = "NO"><BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "562D9B3A93BA77D8DB434DB6" BuildableName = "SleepingRoutineForZyTests.xctest" BlueprintName = "SleepingRoutineForZyTests" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/></TestableReference>
-         <TestableReference skipped = "NO"><BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "959CF410BA1FB6936A90FC3B" BuildableName = "SleepingRoutineForZyUITests.xctest" BlueprintName = "SleepingRoutineForZyUITests" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/></TestableReference>
+         <TestableReference skipped = "NO"><BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "6F9C7FBDBA8BE834A038CD02" BuildableName = "SleepingRoutineForZyTests.xctest" BlueprintName = "SleepingRoutineForZyTests" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/></TestableReference>
+         <TestableReference skipped = "NO"><BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "EA52A7BF6E2BD8FD544966E0" BuildableName = "SleepingRoutineForZyUITests.xctest" BlueprintName = "SleepingRoutineForZyUITests" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/></TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
       <BuildableProductRunnable runnableDebuggingMode = "0">
-         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "E9CE1D928ECD808E676E6BC9" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
+         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "56245C93B68F8BFCF4EEC4BC" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
       </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
       <BuildableProductRunnable runnableDebuggingMode = "0">
-         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "E9CE1D928ECD808E676E6BC9" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
+         <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "56245C93B68F8BFCF4EEC4BC" BuildableName = "SleepingRoutineForZy.app" BlueprintName = "SleepingRoutineForZy" ReferencedContainer = "container:SleepingRoutineForZy.xcodeproj"/>
       </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction buildConfiguration = "Debug"/>

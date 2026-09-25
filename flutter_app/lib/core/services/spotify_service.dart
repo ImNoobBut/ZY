@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -55,10 +56,11 @@ class SpotifyService {
   Future<void> openAuthorizeInBrowser() async {
     final uri = await buildAuthorizeUri();
     // On web, stay in the same tab so Spotify can redirect back to /callback.
+    // On Android, open the system browser; the custom-scheme redirect returns via app_links.
     final ok = await launchUrl(
       uri,
       webOnlyWindowName: '_self',
-      mode: LaunchMode.platformDefault,
+      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
     );
     if (!ok) throw Exception('Could not open Spotify login');
   }
@@ -203,22 +205,95 @@ class SpotifyService {
     final body = spotifyUri.contains(':track:')
         ? {'uris': [spotifyUri]}
         : {'context_uri': spotifyUri};
-    final res = await http.put(
-      Uri.parse('https://api.spotify.com/v1/me/player/play'),
+
+    Future<http.Response> sendPlay({String? deviceId}) {
+      final uri = deviceId == null
+          ? Uri.parse('https://api.spotify.com/v1/me/player/play')
+          : Uri.parse('https://api.spotify.com/v1/me/player/play?device_id=$deviceId');
+      return http.put(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+    }
+
+    var res = await sendPlay();
+    if (res.statusCode == 404) {
+      final deviceId = await _firstAvailableDeviceId();
+      if (deviceId != null) {
+        await _transferPlayback(deviceId);
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        res = await sendPlay(deviceId: deviceId);
+      }
+    }
+    if (res.statusCode == 404 || res.statusCode == 403) {
+      throw Exception(
+        'No active Spotify device. Open Spotify on your phone or desktop, '
+        'play any track once, then retry. Premium is required for remote play.',
+      );
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Playback request failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  /// Visible Connect targets (empty until Spotify is open somewhere).
+  Future<List<String>> listDeviceNames() async {
+    if (_isDemo) return ['Demo device'];
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/player/devices'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (res.statusCode != 200) return [];
+    final devices = (jsonDecode(res.body)['devices'] as List?) ?? [];
+    return devices.map((raw) {
+      final map = raw as Map<String, dynamic>;
+      final name = map['name'] as String? ?? 'Device';
+      final type = map['type'] as String? ?? '';
+      final active = map['is_active'] == true ? ' (active)' : '';
+      return type.isEmpty ? '$name$active' : '$name · $type$active';
+    }).toList();
+  }
+
+  Future<void> openSpotifyApp() async {
+    final uri = Uri.parse('https://open.spotify.com/');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<String?> _firstAvailableDeviceId() async {
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/player/devices'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (res.statusCode != 200) return null;
+    final devices = (jsonDecode(res.body)['devices'] as List?) ?? [];
+    String? fallback;
+    for (final raw in devices) {
+      final map = raw as Map<String, dynamic>;
+      final id = map['id'] as String?;
+      if (id == null || id.isEmpty) continue;
+      if (map['is_active'] == true) return id;
+      fallback ??= id;
+    }
+    return fallback;
+  }
+
+  Future<void> _transferPlayback(String deviceId) async {
+    await http.put(
+      Uri.parse('https://api.spotify.com/v1/me/player'),
       headers: {
         'Authorization': 'Bearer $_accessToken',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode(body),
+      body: jsonEncode({
+        'device_ids': [deviceId],
+        'play': false,
+      }),
     );
-    if (res.statusCode == 404 || res.statusCode == 403) {
-      throw Exception(
-        'Spotify playback unavailable. Open Spotify on a Premium account with an active device.',
-      );
-    }
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw Exception('Playback request failed (${res.statusCode})');
-    }
   }
 
   Future<void> pause() async {

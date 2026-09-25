@@ -5,6 +5,7 @@ import 'app.dart';
 import 'app_state.dart';
 import 'core/config/app_config.dart';
 import 'core/services/admin_service.dart';
+import 'core/services/alarm_scheduler_factory.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
 import 'core/storage/local_store.dart';
@@ -16,12 +17,14 @@ Future<void> main() async {
   final spotify = SpotifyService(config: config, store: store);
   final admin = AdminService(config: config, store: store);
   final audio = QuietAudioService();
+  final alarmScheduler = createPlatformAlarmScheduler();
   final state = AppState(
     config: config,
     store: store,
     spotify: spotify,
     admin: admin,
     audio: audio,
+    alarmScheduler: alarmScheduler,
   );
   await state.bootstrap();
 
