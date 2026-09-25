@@ -67,6 +67,13 @@ class SpotifyService {
 
   /// If the browser landed on our redirect URI with ?code=, finish PKCE exchange.
   Future<bool> tryCompleteFromCurrentUri(Uri current) async {
+    final oauthError = current.queryParameters['error'];
+    if (oauthError != null) {
+      final desc = current.queryParameters['error_description'] ?? oauthError;
+      await store.clearSpotifyPkce();
+      throw Exception('Spotify login cancelled or denied: $desc');
+    }
+
     final code = current.queryParameters['code'];
     final state = current.queryParameters['state'];
     if (code == null || state == null) return false;
@@ -74,13 +81,20 @@ class SpotifyService {
     final saved = await store.loadSpotifyPkce();
     final verifier = saved?['verifier'] ?? _pendingVerifier;
     final expectedState = saved?['state'] ?? _pendingState;
-    if (verifier == null || expectedState == null || state != expectedState) {
-      throw Exception('Spotify login expired. Tap Connect Spotify again.');
+    if (verifier == null || expectedState == null) {
+      throw Exception(
+        'Spotify login expired (missing PKCE). '
+        'Open the app at ${config.spotifyRedirectUri.replaceAll('/callback', '')} '
+        '(use 127.0.0.1, not localhost), then Connect Spotify again.',
+      );
+    }
+    if (state != expectedState) {
+      await store.clearSpotifyPkce();
+      throw Exception('Spotify login expired (state mismatch). Tap Connect Spotify again.');
     }
     _pendingVerifier = verifier;
     _pendingState = expectedState;
     await completeAuthFromRedirect(current);
-    await store.clearSpotifyPkce();
     return true;
   }
 

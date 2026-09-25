@@ -54,7 +54,7 @@ flutter run -d android --dart-define=SPOTIFY_CLIENT_ID=your_id
 flutter run -d web-server --web-hostname=127.0.0.1 --web-port=7357 --dart-define=SPOTIFY_CLIENT_ID=your_id
 ```
 
-Open **http://127.0.0.1:7357** (not `localhost`) so the web redirect matches exactly.
+Open **http://127.0.0.1:7357** (not `localhost`). The app auto-redirects `localhost` → `127.0.0.1` so Spotify PKCE storage matches the registered redirect URI.
 
 ## Admin backend
 

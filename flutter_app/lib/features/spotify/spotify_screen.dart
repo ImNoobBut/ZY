@@ -57,10 +57,10 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
         children: [
           ZyCard(
             child: Text(
-              'Login succeeds when you return with ?code=…\n\n'
-              'A play 404 means no Spotify Connect device. Open Spotify on phone/desktop, '
-              'play any song once, then tap Refresh devices.\n\n'
-              'Ignore browser-extension console noise (Notta / Phantom / contentscript).',
+              'Use http://127.0.0.1:7357 (not localhost). After login you return to /callback; '
+              'the app exchanges the code and then clears it from the address bar.\n\n'
+              'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.\n\n'
+              'Console noise from MetaMask / Notta / Sentry is from browser extensions, not this app.',
               style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
             ),
           ),

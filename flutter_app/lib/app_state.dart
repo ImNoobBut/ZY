@@ -14,6 +14,7 @@ import 'core/services/alarm_scheduler.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
 import 'core/storage/local_store.dart';
+import 'core/web/web_oauth.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -59,9 +60,12 @@ class AppState extends ChangeNotifier {
       final completed = await spotify.tryCompleteFromCurrentUri(Uri.base);
       if (completed) {
         infoMessage = 'Spotify connected.';
+        _refreshMusicLabel();
       }
     } catch (e) {
       errorMessage = '$e';
+    } finally {
+      if (kIsWeb) clearOAuthCallbackFromBrowserUrl();
     }
 
     if (!kIsWeb) {
@@ -114,6 +118,14 @@ class AppState extends ChangeNotifier {
     _linkSub?.cancel();
     audio.dispose();
     super.dispose();
+  }
+
+  Future<void> connectSpotifyDemo() async {
+    await spotify.connectDemo();
+    infoMessage = 'Spotify demo connected.';
+    errorMessage = null;
+    _refreshMusicLabel();
+    notifyListeners();
   }
 
   Future<void> requestAlarmPermission() async {

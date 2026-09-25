@@ -18,6 +18,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool alarmEnabled = true;
   TimeOfDay bedtime = const TimeOfDay(hour: 22, minute: 0);
   TimeOfDay wake = const TimeOfDay(hour: 7, minute: 0);
+  bool _didApplyOauthLanding = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didApplyOauthLanding) return;
+    _didApplyOauthLanding = true;
+    final state = context.read<AppState>();
+    // After Spotify redirects back, land on the music step so success/error is visible.
+    if (state.spotify.isAuthenticated ||
+        (state.infoMessage?.contains('Spotify') ?? false) ||
+        (state.errorMessage?.toLowerCase().contains('spotify') ?? false)) {
+      page = 2;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,34 +115,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               'Connect Spotify or use a quiet in-app tone. Playback needs Premium + an active Spotify device.',
             ),
             const SizedBox(height: 16),
-            PrimaryButton(
-              label: 'Connect Spotify (browser)',
-              onPressed: () async {
-                try {
-                  await state.spotify.openAuthorizeInBrowser();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Complete login in the browser, then use Demo Connect if redirect is awkward on web.'),
-                      ),
-                    );
+            if (state.spotify.isAuthenticated) ...[
+              ZyCard(
+                child: Text(
+                  state.infoMessage ?? 'Spotify connected. Continue when ready.',
+                  style: const TextStyle(height: 1.4),
+                ),
+              ),
+            ] else ...[
+              PrimaryButton(
+                label: 'Connect Spotify (browser)',
+                onPressed: () async {
+                  try {
+                    await state.spotify.openAuthorizeInBrowser();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                    }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            SecondaryButton(
-              label: 'Demo connect (Windows testing)',
-              onPressed: () async {
-                await state.spotify.connectDemo();
-                state.infoMessage = 'Spotify demo connected.';
-                setState(() {});
-              },
-            ),
+                },
+              ),
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: 'Demo connect (Windows testing)',
+                onPressed: () async {
+                  await state.connectSpotifyDemo();
+                },
+              ),
+            ],
+            if (state.errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(state.errorMessage!, style: const TextStyle(color: AppTheme.destructive)),
+            ],
+            if (!state.spotify.isAuthenticated && state.infoMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(state.infoMessage!, style: const TextStyle(color: AppTheme.secondaryText)),
+            ],
           ],
         );
       default:
