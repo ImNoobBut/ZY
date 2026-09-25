@@ -31,6 +31,7 @@ protocol SpotifyService: AnyObject {
     func search(query: String) async throws -> [SpotifyTrack]
     func getPlaylists() async throws -> [SpotifyPlaylist]
     func getPlaylistTracks(playlistID: String) async throws -> [SpotifyTrack]
+    func listDeviceNames() async throws -> [String]
     func play(uri: String) async throws
     func pause() async throws
 }

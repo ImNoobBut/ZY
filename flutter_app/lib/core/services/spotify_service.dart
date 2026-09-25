@@ -313,6 +313,11 @@ class SpotifyService {
   Future<void> pause() async {
     if (_isDemo) return;
     if (_accessToken == null) return;
+    try {
+      await _ensureToken();
+    } catch (_) {
+      return;
+    }
     await http.put(
       Uri.parse('https://api.spotify.com/v1/me/player/pause'),
       headers: {'Authorization': 'Bearer $_accessToken'},
@@ -326,7 +331,11 @@ class SpotifyService {
     if (_expiry != null && DateTime.now().isBefore(_expiry!.subtract(const Duration(seconds: 60)))) {
       return;
     }
-    if (_refreshToken == null || _isDemo) return;
+    if (_isDemo) return;
+    if (_refreshToken == null) {
+      await logout();
+      throw Exception('Spotify session expired. Connect Spotify again.');
+    }
     final res = await http.post(
       Uri.parse('https://accounts.spotify.com/api/token'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -338,7 +347,12 @@ class SpotifyService {
     );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       await _applyTokenResponse(jsonDecode(res.body) as Map<String, dynamic>);
+      return;
     }
+    await logout();
+    throw Exception(
+      'Spotify session expired (${res.statusCode}). Connect Spotify again.',
+    );
   }
 
   Future<void> _applyTokenResponse(Map<String, dynamic> json) async {

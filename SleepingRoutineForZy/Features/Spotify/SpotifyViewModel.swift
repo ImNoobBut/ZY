@@ -8,6 +8,7 @@ final class SpotifyViewModel {
     var userDisplayName: String?
     var playlists: [SpotifyPlaylist] = []
     var searchResults: [SpotifyTrack] = []
+    var deviceNames: [String] = []
     var searchQuery = ""
     var isBusy = false
     var errorMessage: String?
@@ -34,11 +35,23 @@ final class SpotifyViewModel {
         !configuration.spotifyClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var devicesSummary: String {
+        if deviceNames.isEmpty {
+            return String(
+                localized: "spotify.devices.none",
+                defaultValue: "Devices: none — open Spotify and play a track once."
+            )
+        }
+        let lines = deviceNames.map { "• \($0)" }.joined(separator: "\n")
+        return String(localized: "spotify.devices.list", defaultValue: "Devices:\n\(lines)")
+    }
+
     func refresh() async {
         isAuthenticated = spotifyService.isAuthenticated
         selectedTitle = preferencesRepository.load().selectedSpotifyTitle
         guard isAuthenticated else {
             playlists = []
+            deviceNames = []
             userDisplayName = nil
             return
         }
@@ -48,10 +61,16 @@ final class SpotifyViewModel {
             let user = try await spotifyService.getCurrentUser()
             userDisplayName = user.displayName
             playlists = try await spotifyService.getPlaylists()
+            deviceNames = (try? await spotifyService.listDeviceNames()) ?? []
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? SleepRoutineError.spotifyNotConnected.errorDescription
+            if !spotifyService.isAuthenticated {
+                playlists = []
+                deviceNames = []
+                isAuthenticated = false
+            }
         }
     }
 
@@ -82,10 +101,14 @@ final class SpotifyViewModel {
         isBusy = true
         defer { isBusy = false }
         try? await spotifyService.logout()
+        clearSelectionPrefs()
         isAuthenticated = false
         playlists = []
         searchResults = []
+        deviceNames = []
         userDisplayName = nil
+        selectedTitle = nil
+        errorMessage = nil
         infoMessage = String(localized: "spotify.disconnected", defaultValue: "Spotify disconnected.")
     }
 
@@ -100,8 +123,15 @@ final class SpotifyViewModel {
         do {
             searchResults = try await spotifyService.search(query: query)
             errorMessage = nil
+            if searchResults.isEmpty {
+                infoMessage = String(
+                    localized: "spotify.search.empty",
+                    defaultValue: "No tracks found."
+                )
+            }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
+            searchResults = []
         }
     }
 
@@ -125,6 +155,7 @@ final class SpotifyViewModel {
         defer { isBusy = false }
         do {
             try await spotifyService.play(uri: uri)
+            deviceNames = (try? await spotifyService.listDeviceNames()) ?? deviceNames
             infoMessage = String(
                 localized: "spotify.playback.started",
                 defaultValue: "Playback requested on your active Spotify device."
@@ -150,5 +181,12 @@ final class SpotifyViewModel {
             localized: "spotify.selection.saved",
             defaultValue: "Selected “\(title)” for bedtime."
         )
+    }
+
+    private func clearSelectionPrefs() {
+        var preferences = preferencesRepository.load()
+        preferences.selectedSpotifyURI = nil
+        preferences.selectedSpotifyTitle = nil
+        try? preferencesRepository.save(preferences)
     }
 }

@@ -135,12 +135,25 @@ struct SpotifyView: View {
                     .font(AppTheme.Typography.headline)
                     .foregroundStyle(AppTheme.primaryText)
 
+                Text(viewModel.devicesSummary)
+                    .font(AppTheme.Typography.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Button {
                     Task { await viewModel.playSelected() }
                 } label: {
                     Text(String(localized: "spotify.play", defaultValue: "Play"))
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .disabled(viewModel.isBusy)
+
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    Text(String(localized: "spotify.refresh_devices", defaultValue: "Refresh devices"))
+                }
+                .buttonStyle(SecondaryButtonStyle())
                 .disabled(viewModel.isBusy)
             }
         }

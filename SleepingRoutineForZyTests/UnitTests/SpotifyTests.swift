@@ -64,6 +64,30 @@ final class SpotifyViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.errorMessage)
         XCTAssertFalse(viewModel.isAuthenticated)
     }
+
+    func testDisconnectClearsSelectionPrefs() async throws {
+        let environment = AppEnvironment.preview()
+        let spotify = environment.spotifyService as! SpotifyServiceStub
+        try await spotify.authenticate()
+
+        var preferences = environment.preferencesRepository.load()
+        preferences.selectedSpotifyURI = "spotify:track:x"
+        preferences.selectedSpotifyTitle = "Track"
+        try environment.preferencesRepository.save(preferences)
+
+        let viewModel = SpotifyViewModel(
+            spotifyService: spotify,
+            preferencesRepository: environment.preferencesRepository,
+            configuration: environment.configuration
+        )
+        await viewModel.disconnect()
+
+        let loaded = environment.preferencesRepository.load()
+        XCTAssertNil(loaded.selectedSpotifyURI)
+        XCTAssertNil(loaded.selectedSpotifyTitle)
+        XCTAssertNil(viewModel.selectedTitle)
+        XCTAssertFalse(viewModel.isAuthenticated)
+    }
 }
 
 @MainActor
@@ -108,5 +132,27 @@ final class SpotifyRoutineIntegrationTests: XCTestCase {
         XCTAssertTrue(audio.isPlaying)
         XCTAssertNil(spotify.playURI)
         XCTAssertEqual(environment.routineRepository.loadActiveRoutine()?.musicSource, .local)
+    }
+
+    func testSpotifyPlaybackFailureFallsBackToLocalAudio() async throws {
+        let environment = AppEnvironment.preview()
+        let spotify = environment.spotifyService as! SpotifyServiceStub
+        spotify.shouldFailPlay = true
+        try await spotify.authenticate()
+
+        var preferences = environment.preferencesRepository.load()
+        preferences.selectedSpotifyURI = "spotify:playlist:bedtime"
+        preferences.selectedSpotifyTitle = "Bedtime Mix"
+        preferences.defaultSleepTimer = 10 * 60
+        try environment.preferencesRepository.save(preferences)
+
+        let audio = environment.audioService as! AudioServiceStub
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        await environment.routineController.startRoutine(now: now)
+
+        XCTAssertEqual(environment.routineController.state, .timerRunning)
+        XCTAssertTrue(audio.isPlaying)
+        XCTAssertEqual(environment.routineRepository.loadActiveRoutine()?.musicSource, .local)
+        XCTAssertTrue(environment.routineController.musicLabel.contains("Spotify offline"))
     }
 }

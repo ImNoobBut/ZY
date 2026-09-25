@@ -416,6 +416,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> disconnectSpotify() async {
+    await spotify.logout();
+    await clearSpotifySelection();
+    infoMessage = 'Spotify disconnected.';
+    errorMessage = null;
+    notifyListeners();
+  }
+
   Future<void> setRemoteOptIn(bool enabled) async {
     if (!enabled) {
       preferences.remoteMonitoringOptIn = false;

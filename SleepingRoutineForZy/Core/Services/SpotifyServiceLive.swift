@@ -62,6 +62,12 @@ final class SpotifyServiceLive: SpotifyService {
         }
     }
 
+    func listDeviceNames() async throws -> [String] {
+        try await mapAPI {
+            try await apiClient.listDeviceNames()
+        }
+    }
+
     func play(uri: String) async throws {
         do {
             try await apiClient.play(uri: uri)
@@ -165,6 +171,11 @@ final class SpotifyServiceStub: SpotifyService {
             SpotifyTrack(id: "1", name: "Quiet Evening", artistName: "Demo", uri: "spotify:track:demo1"),
             SpotifyTrack(id: "2", name: "Soft Rain", artistName: "Demo", uri: "spotify:track:demo2")
         ]
+    }
+
+    func listDeviceNames() async throws -> [String] {
+        guard isAuthenticated else { throw SleepRoutineError.spotifyNotConnected }
+        return ["Stub device (active)"]
     }
 
     func play(uri: String) async throws {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
+import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../ui/widgets.dart';
 
@@ -14,8 +15,8 @@ class SpotifyScreen extends StatefulWidget {
 
 class _SpotifyScreenState extends State<SpotifyScreen> {
   final searchController = TextEditingController();
-  List playlists = [];
-  List tracks = [];
+  List<SpotifyPlaylist> playlists = [];
+  List<SpotifyTrack> tracks = [];
   List<String> devices = [];
   String? error;
   bool busy = false;
@@ -36,8 +37,51 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
       error = null;
     } catch (e) {
       error = '$e';
+      if (!state.spotify.isAuthenticated) {
+        playlists = [];
+        tracks = [];
+        devices = [];
+      }
     } finally {
-      setState(() => busy = false);
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _search() async {
+    final query = searchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        tracks = [];
+        error = null;
+      });
+      return;
+    }
+    final state = context.read<AppState>();
+    setState(() => busy = true);
+    try {
+      tracks = await state.spotify.search(query);
+      error = null;
+    } catch (e) {
+      error = '$e';
+      tracks = [];
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _disconnect() async {
+    final state = context.read<AppState>();
+    setState(() => busy = true);
+    try {
+      await state.disconnectSpotify();
+      playlists = [];
+      tracks = [];
+      devices = [];
+      error = null;
+    } catch (e) {
+      error = '$e';
+    } finally {
+      if (mounted) setState(() => busy = false);
     }
   }
 
@@ -68,6 +112,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
           if (!state.spotify.isAuthenticated) ...[
             PrimaryButton(
               label: 'Connect Spotify',
+              busy: busy,
               onPressed: () async {
                 try {
                   await state.spotify.openAuthorizeInBrowser();
@@ -113,7 +158,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
             const SizedBox(height: 8),
             SecondaryButton(
               label: 'Refresh devices',
-              onPressed: _refresh,
+              onPressed: busy ? null : _refresh,
             ),
             const SizedBox(height: 12),
             Row(
@@ -125,29 +170,49 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                       hintText: 'Search',
                       filled: true,
                     ),
+                    onSubmitted: (_) => _search(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: () async {
-                    tracks = await state.spotify.search(searchController.text);
-                    setState(() {});
-                  },
+                  onPressed: busy ? null : _search,
                   child: const Text('Search'),
                 ),
               ],
             ),
+            if (busy) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            if (tracks.isEmpty && searchController.text.trim().isNotEmpty && !busy)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'No tracks found.',
+                  style: TextStyle(color: AppTheme.tertiaryText),
+                ),
+              ),
             const SizedBox(height: 12),
             ...tracks.map(
               (t) => ListTile(
                 title: Text(t.name),
                 subtitle: Text(t.artistName),
-                onTap: () => state.selectSpotify(uri: t.uri, title: '${t.name} — ${t.artistName}'),
+                onTap: () => state.selectSpotify(
+                  uri: t.uri,
+                  title: '${t.name} — ${t.artistName}',
+                ),
               ),
             ),
             const SizedBox(height: 8),
             const Text('Your playlists', style: TextStyle(color: AppTheme.tertiaryText)),
-            if (busy) const LinearProgressIndicator(),
+            if (playlists.isEmpty && !busy)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'No playlists yet.',
+                  style: TextStyle(color: AppTheme.tertiaryText),
+                ),
+              ),
             ...playlists.map(
               (p) => ListTile(
                 title: Text(p.name),
@@ -158,15 +223,10 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
             SecondaryButton(
               label: 'Disconnect',
-              onPressed: () async {
-                await state.spotify.logout();
-                playlists = [];
-                tracks = [];
-                devices = [];
-                setState(() {});
-              },
+              onPressed: busy ? null : _disconnect,
             ),
           ],
           if (error != null) ...[

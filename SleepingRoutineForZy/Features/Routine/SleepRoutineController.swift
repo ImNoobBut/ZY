@@ -128,7 +128,7 @@ final class SleepRoutineController {
         let enabledAlarm = alarmRepository.fetchAll().first(where: \.isEnabled)
         let selectedURI = preferences.selectedSpotifyURI
         let useSpotify = spotifyService.isAuthenticated && selectedURI != nil
-        let musicSource: MusicSource = useSpotify ? .spotify : .local
+        var musicSource: MusicSource = useSpotify ? .spotify : .local
 
         do {
             switch musicSource {
@@ -144,9 +144,19 @@ final class SleepRoutineController {
                         ?? String(localized: "home.music.spotify", defaultValue: "Spotify")
                     try apply(.playing)
                 } catch {
-                    try apply(.failed)
-                    lastError = (error as? SleepRoutineError) ?? .spotifyPlaybackUnavailable
-                    return
+                    // Keep bedtime usable: fall back to in-app quiet audio.
+                    do {
+                        try audioService.prepare(sound: preferences.selectedQuietSound)
+                        try audioService.play()
+                        musicSource = .local
+                        musicLabel = "\(preferences.selectedQuietSound.displayName) (Spotify offline)"
+                        try apply(.playing)
+                        lastError = nil
+                    } catch {
+                        try apply(.failed)
+                        lastError = (error as? SleepRoutineError) ?? .spotifyPlaybackUnavailable
+                        return
+                    }
                 }
             case .local, .none:
                 do {

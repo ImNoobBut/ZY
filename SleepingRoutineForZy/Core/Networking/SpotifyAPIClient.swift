@@ -113,8 +113,8 @@ actor SpotifyAPIClient {
         }
     }
 
-    /// Starts playback on the user's active Spotify Connect device.
-    /// Requires Premium and an active device (usually the Spotify app).
+    /// Starts playback on an active Spotify Connect device.
+    /// On 404 (no active device), transfers to the first available device and retries.
     func play(uri: String) async throws {
         var body: [String: Any] = [:]
         if uri.contains(":track:") {
@@ -122,11 +122,91 @@ actor SpotifyAPIClient {
         } else {
             body["context_uri"] = uri
         }
-        try await put(path: "/me/player/play", jsonBody: body)
+        do {
+            try await put(path: "/me/player/play", jsonBody: body)
+        } catch SpotifyAPIError.noActiveDevice {
+            guard let deviceID = try await firstAvailableDeviceID() else {
+                throw SpotifyAPIError.noActiveDevice
+            }
+            try await transferPlayback(deviceID: deviceID)
+            try await Task.sleep(nanoseconds: 400_000_000)
+            try await put(
+                path: "/me/player/play",
+                query: [URLQueryItem(name: "device_id", value: deviceID)],
+                jsonBody: body
+            )
+        }
+    }
+
+    func listDeviceNames() async throws -> [String] {
+        let devices = try await listDevices()
+        return devices.map { device in
+            let active = device.isActive ? " (active)" : ""
+            if device.type.isEmpty {
+                return "\(device.name)\(active)"
+            }
+            return "\(device.name) · \(device.type)\(active)"
+        }
     }
 
     func pause() async throws {
         try await put(path: "/me/player/pause", jsonBody: nil)
+    }
+
+    // MARK: - Devices
+
+    private struct SpotifyDeviceDTO: Decodable {
+        let id: String?
+        let name: String
+        let type: String?
+        let isActive: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case id, name, type
+            case isActive = "is_active"
+        }
+    }
+
+    private struct DevicesResponse: Decodable {
+        let devices: [SpotifyDeviceDTO]
+    }
+
+    private struct DeviceInfo {
+        let id: String
+        let name: String
+        let type: String
+        let isActive: Bool
+    }
+
+    private func listDevices() async throws -> [DeviceInfo] {
+        let response: DevicesResponse = try await get(path: "/me/player/devices")
+        return response.devices.compactMap { dto in
+            guard let id = dto.id, !id.isEmpty else { return nil }
+            return DeviceInfo(
+                id: id,
+                name: dto.name,
+                type: dto.type ?? "",
+                isActive: dto.isActive ?? false
+            )
+        }
+    }
+
+    private func firstAvailableDeviceID() async throws -> String? {
+        let devices = try await listDevices()
+        if let active = devices.first(where: \.isActive) {
+            return active.id
+        }
+        return devices.first?.id
+    }
+
+    private func transferPlayback(deviceID: String) async throws {
+        try await put(
+            path: "/me/player",
+            jsonBody: [
+                "device_ids": [deviceID],
+                "play": false
+            ]
+        )
     }
 
     // MARK: - HTTP
@@ -142,8 +222,12 @@ actor SpotifyAPIClient {
         }
     }
 
-    private func put(path: String, jsonBody: [String: Any]?) async throws {
-        var request = try await authorizedRequest(path: path, method: "PUT")
+    private func put(
+        path: String,
+        query: [URLQueryItem] = [],
+        jsonBody: [String: Any]?
+    ) async throws {
+        var request = try await authorizedRequest(path: path, method: "PUT", query: query)
         if let jsonBody {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: jsonBody)
