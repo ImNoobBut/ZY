@@ -8,6 +8,14 @@ final class SleepAudioSampleFactoryTests: XCTestCase {
         XCTAssertTrue(SleepAudioSampleFactory.riffHeaderIsValid(data))
         XCTAssertGreaterThan(data.count, 44)
     }
+
+    func testQuietSoundCatalogGeneratesValidWAV() {
+        for sound in QuietSound.allCases {
+            let data = SleepAudioSampleFactory.makeWAV(for: sound)
+            XCTAssertTrue(SleepAudioSampleFactory.riffHeaderIsValid(data), sound.rawValue)
+            XCTAssertGreaterThan(data.count, 44, sound.rawValue)
+        }
+    }
 }
 
 @MainActor

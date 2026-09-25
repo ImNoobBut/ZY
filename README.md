@@ -10,18 +10,21 @@ This repository currently contains **Phase 7 — Remote Admin**: opt-in HTTPS ch
 
 | Feature | Status |
 |---------|--------|
-| Tab navigation (Home / Sleep / Alarms / Settings) | Phase 1 shell |
+| Tab navigation (Home / Alarms / Settings) | Updated — Sleep merged into Home |
 | Domain models + routine state machine | Phase 1 |
 | SwiftData persistence + repositories | Phase 1 |
 | Sleep timer timestamp reconstruction | Phase 1 (logic) |
 | Onboarding | Phase 2 complete |
-| Home routine UX | Phase 3 complete |
-| Sleep timer UI | Phase 3 complete |
+| Home routine UX + timer presets | Phase 3 + polish |
+| Bedtime reminder | Complete |
+| Quiet sounds (soft / rain / white noise / deep hum) | Complete |
+| Timer fade-out (app-owned audio) | Complete |
+| Sleep history / streak | Complete (local) |
 | Local notification alarms | Phase 4 complete (fallback on older iOS) |
 | AlarmKit wake alarms (iOS 26+) | MVP complete |
 | App-owned audio + AVAudioSession | Phase 5 complete |
 | Spotify OAuth PKCE + Web API playback | Phase 6 complete |
-| Remote Admin backend + check-in | Phase 7 complete |
+| Remote Admin backend + check-in | Phase 7 complete (+ bedtime/streak fields) |
 | Flutter Android exact alarms + Spotify deep link | MVP complete |
 | Flutter web best-effort reminders | MVP complete |
 | Privacy / security audit | Phase 8 |

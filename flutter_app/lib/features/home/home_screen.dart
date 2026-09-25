@@ -9,6 +9,8 @@ import '../../ui/widgets.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  static const presets = [15, 30, 45, 60, 90];
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -23,6 +25,13 @@ class HomeScreen extends StatelessWidget {
     final alarmText = alarm == null
         ? 'None'
         : '${alarm.hour.toString().padLeft(2, '0')}:${alarm.minute.toString().padLeft(2, '0')}';
+    final bedtime = state.preferences.preferredBedtimeLabel;
+    final reminder =
+        state.preferences.bedtimeReminderEnabled ? 'Reminder on' : 'Reminder off';
+    final streak = state.currentStreak;
+    final currentMinutes = state.preferences.defaultSleepTimerSeconds ~/ 60;
+    final usingSpotify = state.spotify.isAuthenticated &&
+        state.preferences.selectedSpotifyUri != null;
 
     return NightScaffold(
       child: ListView(
@@ -32,25 +41,83 @@ class HomeScreen extends StatelessWidget {
             active ? 'Sleep routine active' : 'Good evening, Zy',
             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w600),
           ),
+          const SizedBox(height: 8),
+          Text(
+            streak > 0 ? '$streak-night streak' : 'Start tonight’s streak',
+            style: const TextStyle(color: AppTheme.secondaryText),
+          ),
           if (!active) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             const Text('Tonight', style: TextStyle(color: AppTheme.tertiaryText)),
           ],
           const SizedBox(height: 20),
           ZyCard(
             child: Column(
               children: [
-                _row('Music', state.musicLabel),
+                InkWell(
+                  onTap: () {
+                    if (usingSpotify) {
+                      Navigator.of(context).pushNamed('/spotify');
+                    } else {
+                      Navigator.of(context).pushNamed('/quiet-sound');
+                    }
+                  },
+                  child: _row(
+                    'Music',
+                    usingSpotify
+                        ? (state.preferences.selectedSpotifyTitle ?? 'Spotify')
+                        : state.preferences.selectedQuietSound.displayName,
+                  ),
+                ),
                 _row(
                   active ? 'Music stops in' : 'Sleep timer',
                   active
                       ? _fmt(remaining)
-                      : '${state.preferences.defaultSleepTimerSeconds ~/ 60} min',
+                      : '$currentMinutes min',
                 ),
+                if (active && state.fadeStarted && state.audio.isFading)
+                  _row('Audio', 'Fading out…'),
+                _row('Bedtime', '$bedtime · $reminder'),
                 _row('Alarm', alarmText),
               ],
             ),
           ),
+          if (!active) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Timer length',
+              style: TextStyle(color: AppTheme.secondaryText),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final m in presets)
+                  ChoiceChip(
+                    label: Text('$m min'),
+                    selected: currentMinutes == m,
+                    onSelected: (_) => state.setDefaultTimerMinutes(m),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ZyCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Custom: $currentMinutes min'),
+                  Slider(
+                    value: currentMinutes.toDouble().clamp(1, 180),
+                    min: 1,
+                    max: 180,
+                    divisions: 179,
+                    onChanged: (v) => state.setDefaultTimerMinutes(v.round()),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           PrimaryButton(
             label: active ? 'End Routine' : 'Start Sleep Routine',
@@ -63,6 +130,13 @@ class HomeScreen extends StatelessWidget {
               }
             },
           ),
+          if (!usingSpotify) ...[
+            const SizedBox(height: 8),
+            SecondaryButton(
+              label: 'Choose Spotify music',
+              onPressed: () => Navigator.of(context).pushNamed('/spotify'),
+            ),
+          ],
           if (state.errorMessage != null) ...[
             const SizedBox(height: 12),
             Text(state.errorMessage!, style: const TextStyle(color: AppTheme.destructive)),
@@ -88,7 +162,13 @@ class HomeScreen extends StatelessWidget {
         children: [
           Text(title, style: const TextStyle(color: AppTheme.secondaryText)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );

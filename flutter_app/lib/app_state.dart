@@ -13,6 +13,7 @@ import 'core/services/admin_service.dart';
 import 'core/services/alarm_scheduler.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
+import 'core/services/streak_calculator.dart';
 import 'core/storage/local_store.dart';
 import 'core/web/web_oauth.dart';
 
@@ -35,6 +36,7 @@ class AppState extends ChangeNotifier {
 
   UserPreferences preferences = UserPreferences();
   List<SleepAlarm> alarms = [];
+  List<SleepSessionRecord> sessions = [];
   SleepRoutine? activeRoutine;
   RoutineState routineState = RoutineState.idle;
   String musicLabel = 'Not configured yet';
@@ -43,13 +45,21 @@ class AppState extends ChangeNotifier {
   bool busy = false;
   bool ready = false;
   bool? alarmsPermissionGranted;
+  bool fadeStarted = false;
 
   Timer? _ticker;
   StreamSubscription<Uri>? _linkSub;
 
+  int get currentStreak => StreakCalculator.currentStreak(
+        sessions: sessions,
+        bedtimeHour: preferences.preferredBedtimeHour,
+        bedtimeMinute: preferences.preferredBedtimeMinute,
+      );
+
   Future<void> bootstrap() async {
     preferences = await store.loadPreferences();
     alarms = await store.loadAlarms();
+    sessions = await store.loadSessions();
     activeRoutine = await store.loadActiveRoutine();
     await spotify.restore();
     await admin.restore();
@@ -73,6 +83,7 @@ class AppState extends ChangeNotifier {
     }
 
     await alarmScheduler.reconcile(alarms);
+    await _syncBedtimeReminder();
 
     _reconcileRoutine();
     _refreshMusicLabel();
@@ -132,10 +143,12 @@ class AppState extends ChangeNotifier {
     alarmsPermissionGranted = await alarmScheduler.requestPermission();
     if (alarmsPermissionGranted == true) {
       await alarmScheduler.reconcile(alarms);
+      await _syncBedtimeReminder();
       infoMessage = 'Alarm permission granted.';
       errorMessage = null;
     } else {
-      errorMessage = 'Alarm permission is off. Wake alarms need access to work.';
+      errorMessage =
+          'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
     }
     notifyListeners();
   }
@@ -155,6 +168,7 @@ class AppState extends ChangeNotifier {
     preferences.preferredBedtimeMinute = bedtimeMinute;
     preferences.preferredWakeHour = wakeHour;
     preferences.preferredWakeMinute = wakeMinute;
+    preferences.bedtimeReminderEnabled = true;
     await store.savePreferences(preferences);
     if (alarmEnabled && alarms.isEmpty) {
       alarms = [
@@ -162,13 +176,13 @@ class AppState extends ChangeNotifier {
           id: const Uuid().v4(),
           hour: wakeHour,
           minute: wakeMinute,
-          // Default wake routine: Mon–Fri (1–5). Edit days on the Alarms tab.
           repeatDays: {1, 2, 3, 4, 5},
         ),
       ];
       await store.saveAlarms(alarms);
       await alarmScheduler.reconcile(alarms);
     }
+    await _syncBedtimeReminder();
     notifyListeners();
   }
 
@@ -178,11 +192,51 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateBedtimePrefs({
+    int? bedtimeHour,
+    int? bedtimeMinute,
+    int? wakeHour,
+    int? wakeMinute,
+    bool? bedtimeReminderEnabled,
+  }) async {
+    if (bedtimeHour != null) preferences.preferredBedtimeHour = bedtimeHour;
+    if (bedtimeMinute != null) preferences.preferredBedtimeMinute = bedtimeMinute;
+    if (wakeHour != null) preferences.preferredWakeHour = wakeHour;
+    if (wakeMinute != null) preferences.preferredWakeMinute = wakeMinute;
+    if (bedtimeReminderEnabled != null) {
+      preferences.bedtimeReminderEnabled = bedtimeReminderEnabled;
+    }
+    await store.savePreferences(preferences);
+    await _syncBedtimeReminder();
+    notifyListeners();
+  }
+
+  Future<void> setQuietSound(QuietSound sound) async {
+    preferences.selectedQuietSound = sound;
+    await store.savePreferences(preferences);
+    _refreshMusicLabel();
+    notifyListeners();
+  }
+
+  Future<void> previewQuietSound(QuietSound sound) async {
+    await audio.preview(sound);
+    notifyListeners();
+  }
+
+  Future<void> _syncBedtimeReminder() async {
+    await alarmScheduler.scheduleBedtimeReminder(
+      hour: preferences.preferredBedtimeHour,
+      minute: preferences.preferredBedtimeMinute,
+      enabled: preferences.bedtimeReminderEnabled,
+    );
+  }
+
   Future<void> startRoutine() async {
     if (busy) return;
     busy = true;
     errorMessage = null;
     infoMessage = null;
+    fadeStarted = false;
     notifyListeners();
     try {
       routineState = RoutineState.starting;
@@ -195,17 +249,17 @@ class AppState extends ChangeNotifier {
           routineState = RoutineState.playing;
           playingSpotify = true;
         } catch (e) {
-          // Keep bedtime usable on web: fall back to in-app quiet audio.
-          await audio.play();
-          musicLabel = 'Quiet night tone (Spotify device offline)';
+          await audio.play(preferences.selectedQuietSound);
+          musicLabel =
+              '${preferences.selectedQuietSound.displayName} (Spotify device offline)';
           routineState = RoutineState.playing;
           infoMessage =
               'Spotify had no active device, so quiet in-app audio started instead. '
               'Open Spotify, play a track once, then retry for Spotify playback.\n$e';
         }
       } else {
-        await audio.play();
-        musicLabel = 'Quiet night tone';
+        await audio.play(preferences.selectedQuietSound);
+        musicLabel = preferences.selectedQuietSound.displayName;
         routineState = RoutineState.playing;
       }
 
@@ -231,9 +285,25 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> endRoutine() async {
+  Future<void> endRoutine({String? notes}) async {
+    await audio.cancelFade();
+    fadeStarted = false;
+    final started = activeRoutine?.startedAt ?? DateTime.now();
+    final now = DateTime.now();
     await audio.stop();
     await spotify.pause();
+
+    final record = SleepSessionRecord(
+      id: const Uuid().v4(),
+      startedAt: started,
+      musicStoppedAt: now,
+      alarmTime: _firstEnabledAlarm()?.nextFireAfter(now),
+      completedAt: now,
+      notes: notes,
+    );
+    await store.appendSession(record);
+    sessions = await store.loadSessions();
+
     activeRoutine = null;
     await store.saveActiveRoutine(null);
     routineState = RoutineState.idle;
@@ -248,11 +318,23 @@ class AppState extends ChangeNotifier {
     final routine = activeRoutine;
     if (routine?.endsAt == null) return;
     if (routineState != RoutineState.timerRunning) return;
-    if (DateTime.now().isAfter(routine!.endsAt!)) {
-      unawaited(endRoutine());
-    } else {
-      notifyListeners();
+    final left = remaining();
+    if (left == null) return;
+
+    if (left == Duration.zero || DateTime.now().isAfter(routine!.endsAt!)) {
+      unawaited(endRoutine(notes: 'Timer completed'));
+      return;
     }
+
+    final usingLocal = routine.musicSource == MusicSource.local;
+    if (usingLocal &&
+        !fadeStarted &&
+        left.inSeconds <= kFadeOutSeconds &&
+        audio.isPlaying) {
+      fadeStarted = true;
+      unawaited(audio.fadeOut(duration: left));
+    }
+    notifyListeners();
   }
 
   void _reconcileRoutine() {
@@ -262,10 +344,16 @@ class AppState extends ChangeNotifier {
       return;
     }
     if (DateTime.now().isAfter(routine!.endsAt!)) {
-      unawaited(endRoutine());
+      unawaited(endRoutine(notes: 'Timer completed'));
       return;
     }
     routineState = RoutineState.timerRunning;
+    final left = remaining();
+    if (routine.musicSource == MusicSource.local &&
+        left != null &&
+        left.inSeconds <= kFadeOutSeconds) {
+      fadeStarted = true;
+    }
   }
 
   Duration? remaining() {
@@ -278,14 +366,12 @@ class AppState extends ChangeNotifier {
   void _refreshMusicLabel() {
     if (preferences.selectedSpotifyTitle != null && spotify.isAuthenticated) {
       musicLabel = preferences.selectedSpotifyTitle!;
-    } else if (spotify.isAuthenticated) {
+    } else if (spotify.isAuthenticated && preferences.selectedSpotifyUri != null) {
       musicLabel = 'Spotify';
-    } else if (audio.isPlaying) {
-      musicLabel = 'Quiet night tone';
-    } else if (routineState == RoutineState.timerRunning) {
-      musicLabel = 'Quiet night';
+    } else if (audio.isPlaying || routineState == RoutineState.timerRunning) {
+      musicLabel = preferences.selectedQuietSound.displayName;
     } else {
-      musicLabel = 'Not configured yet';
+      musicLabel = preferences.selectedQuietSound.displayName;
     }
   }
 
@@ -319,6 +405,14 @@ class AppState extends ChangeNotifier {
     await store.savePreferences(preferences);
     _refreshMusicLabel();
     infoMessage = 'Selected "$title" for bedtime.';
+    notifyListeners();
+  }
+
+  Future<void> clearSpotifySelection() async {
+    preferences.selectedSpotifyUri = null;
+    preferences.selectedSpotifyTitle = null;
+    await store.savePreferences(preferences);
+    _refreshMusicLabel();
     notifyListeners();
   }
 
@@ -357,6 +451,7 @@ class AppState extends ChangeNotifier {
   Future<void> checkInIfNeeded() async {
     if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
     final enabledAlarm = _firstEnabledAlarm();
+    final next = enabledAlarm?.nextFireAfter();
     final status = DeviceStatus(
       batteryLevel: kIsWeb ? null : 0.8,
       isCharging: kIsWeb ? null : false,
@@ -365,17 +460,11 @@ class AppState extends ChangeNotifier {
       sleepTimerEndsAt: activeRoutine?.endsAt,
       spotifyConnected: spotify.isAuthenticated,
       alarmEnabled: enabledAlarm != null,
-      nextAlarm: enabledAlarm == null
-          ? null
-          : DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
-              enabledAlarm.hour,
-              enabledAlarm.minute,
-            ),
+      nextAlarm: next,
       isPlayingOwnAudio: audio.isPlaying,
       lastCheckIn: DateTime.now(),
+      preferredBedtime: preferences.preferredBedtimeLabel,
+      currentStreak: currentStreak,
     );
     await admin.checkIn(status);
     preferences.lastSuccessfulCheckInIso = status.lastCheckIn.toIso8601String();

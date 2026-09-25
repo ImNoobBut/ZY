@@ -49,6 +49,8 @@ class DeviceStatus(BaseModel):
     nextAlarm: datetime | None = None
     isPlayingOwnAudio: bool
     lastCheckIn: datetime
+    preferredBedtime: str | None = None
+    currentStreak: int | None = None
 
 
 class RegisterBody(BaseModel):

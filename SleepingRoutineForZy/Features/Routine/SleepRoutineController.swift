@@ -13,6 +13,7 @@ final class SleepRoutineController {
         localized: "home.music.not_configured",
         defaultValue: "Not configured yet"
     )
+    private(set) var fadeStarted = false
 
     private var sessionStartedAt: Date?
     private var coordinator = RoutineCoordinator()
@@ -55,18 +56,18 @@ final class SleepRoutineController {
         let preferences = preferencesRepository.load()
         if let title = preferences.selectedSpotifyTitle, spotifyService.isAuthenticated {
             musicLabel = title
-        } else if spotifyService.isAuthenticated {
+        } else if spotifyService.isAuthenticated, preferences.selectedSpotifyURI != nil {
             musicLabel = String(localized: "home.music.spotify", defaultValue: "Spotify")
-        } else if audioService.isPlaying {
-            musicLabel = String(localized: "home.music.playing_local", defaultValue: "Quiet night tone")
+        } else if audioService.isPlaying || isRoutineActive {
+            musicLabel = preferences.selectedQuietSound.displayName
         } else if state == .interrupted {
             musicLabel = String(localized: "home.music.interrupted", defaultValue: "Paused — interruption")
-        } else if isRoutineActive {
-            musicLabel = String(localized: "home.music.quiet", defaultValue: "Quiet night")
         } else {
-            musicLabel = String(localized: "home.music.not_configured", defaultValue: "Not configured yet")
+            musicLabel = preferences.selectedQuietSound.displayName
         }
     }
+
+    var isFadingOut: Bool { audioService.isFading || fadeStarted }
 
     /// Rebuild state from persisted timestamps after launch, foreground, or clock changes.
     func reconcile(now: Date = Date()) {
@@ -149,9 +150,9 @@ final class SleepRoutineController {
                 }
             case .local, .none:
                 do {
-                    try audioService.prepare()
+                    try audioService.prepare(sound: preferences.selectedQuietSound)
                     try audioService.play()
-                    musicLabel = String(localized: "home.music.playing_local", defaultValue: "Quiet night tone")
+                    musicLabel = preferences.selectedQuietSound.displayName
                     try apply(.playing)
                 } catch {
                     try apply(.failed)
@@ -171,6 +172,7 @@ final class SleepRoutineController {
             return
         }
 
+        fadeStarted = false
         let timerState = SleepTimerState.start(duration: duration, now: now)
         var routine = SleepRoutine.makeDefault(duration: duration)
         routine.musicSource = musicSource
@@ -250,6 +252,15 @@ final class SleepRoutineController {
         timer = reconstructed
         if reconstructed.isExpired(at: now) {
             await completeExpiredRoutine(routine: routine, now: now)
+            return
+        }
+        let remaining = reconstructed.remaining(at: now)
+        if routine.musicSource == .local,
+           !fadeStarted,
+           remaining <= SleepAudioFade.fadeOutSeconds,
+           audioService.isPlaying {
+            fadeStarted = true
+            audioService.fadeOut(over: remaining)
         }
     }
 
@@ -326,12 +337,28 @@ final class SleepRoutineController {
         guard routine.musicSource == .local || routine.musicSource == .none else { return }
         guard !audioService.isPlaying, !audioService.isInterrupted else { return }
         do {
-            try audioService.prepare()
+            let sound = preferencesRepository.load().selectedQuietSound
+            try audioService.prepare(sound: sound)
             try audioService.play()
         } catch {
             // Soft failure — timer remains accurate from timestamps.
             lastError = .audioSessionUnavailable
         }
+    }
+
+    var currentStreak: Int {
+        let preferences = preferencesRepository.load()
+        return StreakCalculator.currentStreak(
+            sessions: historyRepository.fetchRecent(limit: 60),
+            bedtimeHour: preferences.preferredBedtime?.hour ?? 22,
+            bedtimeMinute: preferences.preferredBedtime?.minute ?? 0
+        )
+    }
+
+    func setDefaultTimerMinutes(_ minutes: Int) throws {
+        var preferences = preferencesRepository.load()
+        preferences.defaultSleepTimer = TimeInterval(max(1, min(180, minutes)) * 60)
+        try preferencesRepository.save(preferences)
     }
 
     private func apply(_ next: RoutineState) throws {
@@ -340,6 +367,7 @@ final class SleepRoutineController {
     }
 
     private func stopPlayback() {
+        fadeStarted = false
         audioService.stop()
         Task {
             try? await spotifyService.pause()

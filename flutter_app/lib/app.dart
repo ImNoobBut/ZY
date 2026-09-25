@@ -8,8 +8,10 @@ import 'features/alarms/alarms_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/privacy/privacy_screen.dart';
+import 'features/settings/bedtime_settings_screen.dart';
+import 'features/settings/quiet_sound_screen.dart';
 import 'features/settings/settings_screen.dart';
-import 'features/sleep_timer/sleep_timer_screen.dart';
+import 'features/settings/sleep_history_screen.dart';
 import 'features/spotify/spotify_screen.dart';
 
 class ZyApp extends StatelessWidget {
@@ -26,6 +28,9 @@ class ZyApp extends StatelessWidget {
         '/spotify': (_) => const SpotifyScreen(),
         '/admin': (_) => const AdminScreen(),
         '/privacy': (_) => const PrivacyScreen(),
+        '/bedtime': (_) => const BedtimeSettingsScreen(),
+        '/quiet-sound': (_) => const QuietSoundScreen(),
+        '/history': (_) => const SleepHistoryScreen(),
       },
     );
   }
@@ -63,7 +68,6 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final pages = [
       const HomeScreen(),
-      const SleepTimerScreen(),
       const AlarmsScreen(),
       const SettingsScreen(),
     ];
@@ -77,7 +81,6 @@ class _MainShellState extends State<MainShell> {
         onDestinationSelected: (i) => setState(() => index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.nightlight_round), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.timer_outlined), label: 'Sleep'),
           NavigationDestination(icon: Icon(Icons.alarm), label: 'Alarms'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],

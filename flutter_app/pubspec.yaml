@@ -1,7 +1,7 @@
 name: sleeping_routine_for_zy
 description: Sleeping Routine for Zy — Flutter port (Android + Web). Swift iOS app remains the native source of truth.
 publish_to: "none"
-version: 0.8.0+1
+version: 0.9.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

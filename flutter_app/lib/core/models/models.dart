@@ -1,3 +1,28 @@
+/// App-owned quiet sound catalog (shared IDs with Swift).
+enum QuietSound {
+  softTone,
+  rain,
+  whiteNoise,
+  deepHum;
+
+  String get displayName => switch (this) {
+        QuietSound.softTone => 'Soft tone',
+        QuietSound.rain => 'Rain',
+        QuietSound.whiteNoise => 'White noise',
+        QuietSound.deepHum => 'Deep hum',
+      };
+
+  static QuietSound fromId(String? id) {
+    return QuietSound.values.firstWhere(
+      (e) => e.name == id,
+      orElse: () => QuietSound.softTone,
+    );
+  }
+}
+
+/// Fade-out window for app-owned audio at end of sleep timer.
+const int kFadeOutSeconds = 300;
+
 class UserPreferences {
   UserPreferences({
     this.hasCompletedOnboarding = false,
@@ -7,6 +32,8 @@ class UserPreferences {
     this.preferredWakeHour = 7,
     this.preferredWakeMinute = 0,
     this.defaultAlarmEnabled = true,
+    this.bedtimeReminderEnabled = true,
+    this.selectedQuietSound = QuietSound.softTone,
     this.selectedSpotifyUri,
     this.selectedSpotifyTitle,
     this.remoteMonitoringOptIn = false,
@@ -20,10 +47,18 @@ class UserPreferences {
   int preferredWakeHour;
   int preferredWakeMinute;
   bool defaultAlarmEnabled;
+  bool bedtimeReminderEnabled;
+  QuietSound selectedQuietSound;
   String? selectedSpotifyUri;
   String? selectedSpotifyTitle;
   bool remoteMonitoringOptIn;
   String? lastSuccessfulCheckInIso;
+
+  String get preferredBedtimeLabel {
+    final h = preferredBedtimeHour.toString().padLeft(2, '0');
+    final m = preferredBedtimeMinute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   Map<String, dynamic> toJson() => {
         'hasCompletedOnboarding': hasCompletedOnboarding,
@@ -33,6 +68,8 @@ class UserPreferences {
         'preferredWakeHour': preferredWakeHour,
         'preferredWakeMinute': preferredWakeMinute,
         'defaultAlarmEnabled': defaultAlarmEnabled,
+        'bedtimeReminderEnabled': bedtimeReminderEnabled,
+        'selectedQuietSound': selectedQuietSound.name,
         'selectedSpotifyUri': selectedSpotifyUri,
         'selectedSpotifyTitle': selectedSpotifyTitle,
         'remoteMonitoringOptIn': remoteMonitoringOptIn,
@@ -48,6 +85,8 @@ class UserPreferences {
       preferredWakeHour: json['preferredWakeHour'] as int? ?? 7,
       preferredWakeMinute: json['preferredWakeMinute'] as int? ?? 0,
       defaultAlarmEnabled: json['defaultAlarmEnabled'] as bool? ?? true,
+      bedtimeReminderEnabled: json['bedtimeReminderEnabled'] as bool? ?? true,
+      selectedQuietSound: QuietSound.fromId(json['selectedQuietSound'] as String?),
       selectedSpotifyUri: json['selectedSpotifyUri'] as String?,
       selectedSpotifyTitle: json['selectedSpotifyTitle'] as String?,
       remoteMonitoringOptIn: json['remoteMonitoringOptIn'] as bool? ?? false,
@@ -197,6 +236,49 @@ class SleepAlarm {
   }
 }
 
+class SleepSessionRecord {
+  SleepSessionRecord({
+    required this.id,
+    required this.startedAt,
+    this.musicStoppedAt,
+    this.alarmTime,
+    this.completedAt,
+    this.notes,
+  });
+
+  final String id;
+  final DateTime startedAt;
+  final DateTime? musicStoppedAt;
+  final DateTime? alarmTime;
+  final DateTime? completedAt;
+  final String? notes;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'startedAt': startedAt.toIso8601String(),
+        'musicStoppedAt': musicStoppedAt?.toIso8601String(),
+        'alarmTime': alarmTime?.toIso8601String(),
+        'completedAt': completedAt?.toIso8601String(),
+        'notes': notes,
+      };
+
+  factory SleepSessionRecord.fromJson(Map<String, dynamic> json) {
+    return SleepSessionRecord(
+      id: json['id'] as String,
+      startedAt: DateTime.parse(json['startedAt'] as String),
+      musicStoppedAt: json['musicStoppedAt'] != null
+          ? DateTime.parse(json['musicStoppedAt'] as String)
+          : null,
+      alarmTime:
+          json['alarmTime'] != null ? DateTime.parse(json['alarmTime'] as String) : null,
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'] as String)
+          : null,
+      notes: json['notes'] as String?,
+    );
+  }
+}
+
 class DeviceStatus {
   DeviceStatus({
     required this.routineActive,
@@ -209,6 +291,8 @@ class DeviceStatus {
     this.routineStartedAt,
     this.sleepTimerEndsAt,
     this.nextAlarm,
+    this.preferredBedtime,
+    this.currentStreak,
   });
 
   final double? batteryLevel;
@@ -221,6 +305,8 @@ class DeviceStatus {
   final DateTime? nextAlarm;
   final bool isPlayingOwnAudio;
   final DateTime lastCheckIn;
+  final String? preferredBedtime;
+  final int? currentStreak;
 
   Map<String, dynamic> toJson() => {
         'batteryLevel': batteryLevel,
@@ -233,6 +319,8 @@ class DeviceStatus {
         'nextAlarm': nextAlarm?.toUtc().toIso8601String(),
         'isPlayingOwnAudio': isPlayingOwnAudio,
         'lastCheckIn': lastCheckIn.toUtc().toIso8601String(),
+        'preferredBedtime': preferredBedtime,
+        'currentStreak': currentStreak,
       };
 }
 

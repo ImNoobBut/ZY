@@ -76,6 +76,8 @@
 
     <section class="card" id="status-card" hidden>
       <div class="row"><span class="muted">Routine</span><strong id="routine">—</strong></div>
+      <div class="row"><span class="muted">Bedtime</span><strong id="bedtime">—</strong></div>
+      <div class="row"><span class="muted">Streak</span><strong id="streak">—</strong></div>
       <div class="row"><span class="muted">Battery</span><strong id="battery">—</strong></div>
       <div class="row"><span class="muted">Charging</span><strong id="charging">—</strong></div>
       <div class="row"><span class="muted">Spotify</span><strong id="spotify">—</strong></div>
@@ -144,6 +146,9 @@
         const data = await res.json();
         const s = data.deviceStatus;
         document.getElementById("routine").textContent = s.routineActive ? "Active" : "Idle";
+        document.getElementById("bedtime").textContent = s.preferredBedtime || "—";
+        document.getElementById("streak").textContent =
+          s.currentStreak == null ? "—" : `${s.currentStreak} night${s.currentStreak === 1 ? "" : "s"}`;
         document.getElementById("battery").textContent =
           s.batteryLevel == null ? "—" : `${Math.round(s.batteryLevel * 100)}%`;
         document.getElementById("charging").textContent =

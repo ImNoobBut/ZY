@@ -15,6 +15,15 @@ abstract class AlarmScheduler {
 
   Future<void> reconcile(List<SleepAlarm> alarms);
 
+  /// Daily bedtime reminder at hour:minute. Cancelled when [enabled] is false.
+  Future<void> scheduleBedtimeReminder({
+    required int hour,
+    required int minute,
+    required bool enabled,
+  });
+
+  Future<void> cancelBedtimeReminder();
+
   /// True when this platform can only remind while the page/app stays alive (web).
   bool get isBestEffortOnly;
 

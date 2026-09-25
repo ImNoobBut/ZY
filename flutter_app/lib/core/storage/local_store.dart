@@ -8,9 +8,11 @@ class LocalStore {
   static const _prefsKey = 'user_preferences_v1';
   static const _routineKey = 'active_routine_v1';
   static const _alarmsKey = 'alarms_v1';
+  static const _sessionsKey = 'sleep_sessions_v1';
   static const _spotifyTokensKey = 'spotify_tokens_v1';
   static const _adminCredsKey = 'admin_creds_v1';
   static const _adminPinKey = 'admin_pin_hash_v1';
+  static const _maxSessions = 60;
 
   Future<UserPreferences> loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
@@ -53,6 +55,29 @@ class LocalStore {
     await prefs.setString(
       _alarmsKey,
       jsonEncode(alarms.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<List<SleepSessionRecord>> loadSessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_sessionsKey);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List;
+    return list
+        .map((e) => SleepSessionRecord.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> appendSession(SleepSessionRecord record) async {
+    final sessions = await loadSessions();
+    sessions.insert(0, record);
+    while (sessions.length > _maxSessions) {
+      sessions.removeLast();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _sessionsKey,
+      jsonEncode(sessions.map((e) => e.toJson()).toList()),
     );
   }
 

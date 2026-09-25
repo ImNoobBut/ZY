@@ -89,6 +89,48 @@ class WebAlarmScheduler implements AlarmScheduler {
       }
     }
   }
+
+  Timer? _bedtimeTimer;
+
+  @override
+  Future<void> scheduleBedtimeReminder({
+    required int hour,
+    required int minute,
+    required bool enabled,
+  }) async {
+    await cancelBedtimeReminder();
+    if (!enabled) return;
+
+    if (!_permissionGranted) {
+      final ok = await requestPermission();
+      if (!ok) return;
+    }
+
+    void arm() {
+      final now = DateTime.now();
+      var next = DateTime(now.year, now.month, now.day, hour, minute);
+      if (!next.isAfter(now)) {
+        next = next.add(const Duration(days: 1));
+      }
+      _bedtimeTimer = Timer(next.difference(now), () {
+        try {
+          html.Notification(
+            'Bedtime',
+            body: 'Time for your sleep routine (keep this tab open on web)',
+          );
+        } catch (_) {}
+        arm();
+      });
+    }
+
+    arm();
+  }
+
+  @override
+  Future<void> cancelBedtimeReminder() async {
+    _bedtimeTimer?.cancel();
+    _bedtimeTimer = null;
+  }
 }
 
 AlarmScheduler createAlarmScheduler() => WebAlarmScheduler();

@@ -176,6 +176,64 @@ class MobileAlarmScheduler implements AlarmScheduler {
     }
   }
 
+  static const _bedtimeReminderId = 910001;
+  static const _bedtimeChannelId = 'zy_bedtime_reminder';
+
+  @override
+  Future<void> scheduleBedtimeReminder({
+    required int hour,
+    required int minute,
+    required bool enabled,
+  }) async {
+    await initialize();
+    await cancelBedtimeReminder();
+    if (!enabled) return;
+
+    if (!await hasPermission()) {
+      final granted = await requestPermission();
+      if (!granted) return;
+    }
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _bedtimeChannelId,
+        'Bedtime reminder',
+        description: 'Reminder to start your sleep routine',
+        importance: Importance.defaultImportance,
+      ),
+    );
+
+    final when = _nextInstance(hour, minute);
+    await _plugin.zonedSchedule(
+      _bedtimeReminderId,
+      'Bedtime',
+      'Time for your sleep routine',
+      when,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _bedtimeChannelId,
+          'Bedtime reminder',
+          channelDescription: 'Reminder to start your sleep routine',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  @override
+  Future<void> cancelBedtimeReminder() async {
+    await initialize();
+    await _plugin.cancel(_bedtimeReminderId);
+  }
+
   tz.TZDateTime _nextInstance(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);

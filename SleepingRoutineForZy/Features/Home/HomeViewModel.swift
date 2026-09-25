@@ -4,11 +4,17 @@ import Observation
 @Observable
 final class HomeViewModel {
     private let routineController: SleepRoutineController
+    private let preferencesRepository: any PreferencesRepository
     var isBusy = false
     var errorMessage: String?
+    var showQuietSoundPicker = false
 
-    init(routineController: SleepRoutineController) {
+    init(
+        routineController: SleepRoutineController,
+        preferencesRepository: any PreferencesRepository
+    ) {
         self.routineController = routineController
+        self.preferencesRepository = preferencesRepository
     }
 
     var isActive: Bool { routineController.isRoutineActive }
@@ -38,8 +44,40 @@ final class HomeViewModel {
         return String(localized: "home.timer.minutes \(minutes)", defaultValue: "\(minutes) min")
     }
 
+    var preferences: UserPreferences { preferencesRepository.load() }
+
+    var bedtimeText: String {
+        let prefs = preferences
+        let reminder = prefs.bedtimeReminderEnabled
+            ? String(localized: "home.reminder.on", defaultValue: "Reminder on")
+            : String(localized: "home.reminder.off", defaultValue: "Reminder off")
+        return "\(prefs.preferredBedtimeLabel) · \(reminder)"
+    }
+
+    var streakText: String {
+        let streak = routineController.currentStreak
+        if streak > 0 {
+            return String(
+                localized: "home.streak.count \(streak)",
+                defaultValue: "\(streak)-night streak"
+            )
+        }
+        return String(localized: "home.streak.empty", defaultValue: "Start tonight’s streak")
+    }
+
+    var isFading: Bool { routineController.isFadingOut }
+
+    var usingSpotify: Bool {
+        let prefs = preferences
+        return !prefs.selectedSpotifyURI.isNilOrEmpty
+    }
+
     func remainingText(at now: Date) -> String {
         routineController.timer.remaining(at: now).mmssCountdown
+    }
+
+    func setTimerMinutes(_ minutes: Int) {
+        try? routineController.setDefaultTimerMinutes(minutes)
     }
 
     @MainActor
@@ -69,5 +107,14 @@ final class HomeViewModel {
     func refresh() {
         routineController.reconcile()
         errorMessage = routineController.lastError?.errorDescription
+    }
+}
+
+private extension Optional where Wrapped == String {
+    var isNilOrEmpty: Bool {
+        switch self {
+        case .none: return true
+        case .some(let value): return value.isEmpty
+        }
     }
 }

@@ -37,6 +37,22 @@ class StubAlarmScheduler implements AlarmScheduler {
       ..clear()
       ..addAll(alarms.where((a) => a.isEnabled));
   }
+
+  bool bedtimeReminderScheduled = false;
+
+  @override
+  Future<void> scheduleBedtimeReminder({
+    required int hour,
+    required int minute,
+    required bool enabled,
+  }) async {
+    bedtimeReminderScheduled = enabled;
+  }
+
+  @override
+  Future<void> cancelBedtimeReminder() async {
+    bedtimeReminderScheduled = false;
+  }
 }
 
 AlarmScheduler createAlarmScheduler() => StubAlarmScheduler();

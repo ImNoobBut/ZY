@@ -63,18 +63,20 @@ cd e:\Develop\App\Zy\SRZ\backend
 python -m uvicorn main:app --host 127.0.0.1 --port 8081
 ```
 
-## Feature parity (v0.8 MVP)
+## Feature parity (v0.9)
 
 | Area | Status |
 |------|--------|
 | Onboarding | Yes (includes alarm permission) |
-| Home / sleep routine + timer timestamps | Yes |
-| Sleep timer presets | Yes |
+| Home (timer presets + streak + bedtime) | Yes — 3 tabs: Home / Alarms / Settings |
+| Bedtime reminder | Yes (daily local notification) |
+| Quiet sounds | Soft tone / Rain / White noise / Deep hum |
+| Timer fade-out (last 5 min, app audio) | Yes |
+| Sleep history / streak | Yes (local) |
 | Alarms (Android exact notifications) | Yes |
 | Alarms (web best-effort while tab open) | Yes — honest limitation copy |
-| App-owned quiet audio | Yes (asset tone) |
 | Spotify PKCE + Web API | Yes (Android deep link + web redirect) |
-| Remote Admin opt-in + pairing | Yes |
+| Remote Admin opt-in + pairing | Yes (includes bedtime + streak) |
 | Privacy screen | Yes |
 
 ## Relationship to Swift

@@ -62,7 +62,9 @@ protocol DeviceStatusService: AnyObject {
         spotifyConnected: Bool,
         alarmEnabled: Bool,
         nextAlarm: Date?,
-        isPlayingOwnAudio: Bool
+        isPlayingOwnAudio: Bool,
+        preferredBedtime: String?,
+        currentStreak: Int?
     ) -> DeviceStatus
 }
 
@@ -82,7 +84,9 @@ final class DeviceStatusServiceLive: DeviceStatusService {
         spotifyConnected: Bool,
         alarmEnabled: Bool,
         nextAlarm: Date?,
-        isPlayingOwnAudio: Bool
+        isPlayingOwnAudio: Bool,
+        preferredBedtime: String? = nil,
+        currentStreak: Int? = nil
     ) -> DeviceStatus {
         let state = batteryState
         let level = batteryLevel
@@ -96,7 +100,9 @@ final class DeviceStatusServiceLive: DeviceStatusService {
             alarmEnabled: alarmEnabled,
             nextAlarm: nextAlarm,
             isPlayingOwnAudio: isPlayingOwnAudio,
-            lastCheckIn: Date()
+            lastCheckIn: Date(),
+            preferredBedtime: preferredBedtime,
+            currentStreak: currentStreak
         )
     }
 

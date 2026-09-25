@@ -43,6 +43,7 @@ final class AppState {
             try? await environment.alarmScheduler.reconcile(
                 alarms: environment.alarmRepository.fetchAll()
             )
+            await BedtimeReminderScheduler.sync(from: environment.preferencesRepository.load())
             await environment.adminMonitoring.checkInIfNeeded()
         }
     }
@@ -65,7 +66,6 @@ final class AppState {
 
 enum AppTab: Hashable {
     case home
-    case sleep
     case alarms
     case settings
 }

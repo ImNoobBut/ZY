@@ -65,6 +65,7 @@ final class AdminMonitoringController {
         let routine = routineRepository.loadActiveRoutine()
         let alarm = alarmRepository.fetchAll().first(where: \.isEnabled)
         let nextAlarm = Self.nextAlarmDate(for: alarm, from: now)
+        let preferences = preferencesRepository.load()
         let status = deviceStatusService.currentStatus(
             routineActive: routineController.isRoutineActive,
             routineStartedAt: routine?.startedAt,
@@ -72,7 +73,9 @@ final class AdminMonitoringController {
             spotifyConnected: spotifyService.isAuthenticated,
             alarmEnabled: alarm != nil,
             nextAlarm: nextAlarm,
-            isPlayingOwnAudio: audioService.isPlaying
+            isPlayingOwnAudio: audioService.isPlaying,
+            preferredBedtime: preferences.preferredBedtimeLabel,
+            currentStreak: routineController.currentStreak
         )
         latestStatus = status
         return status

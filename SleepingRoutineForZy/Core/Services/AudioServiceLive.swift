@@ -5,11 +5,13 @@ protocol AudioService: AnyObject {
     var isPlaying: Bool { get }
     /// True while the audio session is interrupted (e.g. phone call).
     var isInterrupted: Bool { get }
+    var isFading: Bool { get }
 
-    func prepare() throws
+    func prepare(sound: QuietSound) throws
     func play() throws
     func pause()
     func stop()
+    func fadeOut(over duration: TimeInterval)
 
     /// Called on the main actor when an interruption begins.
     var onInterruptionBegan: (() -> Void)? { get set }
@@ -19,13 +21,21 @@ protocol AudioService: AnyObject {
     var onRouteChanged: ((_ shouldPause: Bool) -> Void)? { get set }
 }
 
+extension AudioService {
+    func prepare() throws {
+        try prepare(sound: .softTone)
+    }
+}
+
 /// In-memory stub for previews and unit tests.
 final class AudioServiceStub: AudioService {
     private(set) var isPlaying = false
     private(set) var isInterrupted = false
+    private(set) var isFading = false
     private(set) var prepareCallCount = 0
     private(set) var playCallCount = 0
     private(set) var stopCallCount = 0
+    private(set) var fadeOutCallCount = 0
 
     var onInterruptionBegan: (() -> Void)?
     var onInterruptionEnded: ((Bool) -> Void)?
@@ -34,7 +44,7 @@ final class AudioServiceStub: AudioService {
     var shouldFailPrepare = false
     var shouldFailPlay = false
 
-    func prepare() throws {
+    func prepare(sound: QuietSound) throws {
         prepareCallCount += 1
         if shouldFailPrepare { throw SleepRoutineError.audioSessionUnavailable }
     }
@@ -44,6 +54,7 @@ final class AudioServiceStub: AudioService {
         if shouldFailPlay { throw SleepRoutineError.audioSessionUnavailable }
         isPlaying = true
         isInterrupted = false
+        isFading = false
     }
 
     func pause() {
@@ -54,6 +65,14 @@ final class AudioServiceStub: AudioService {
         stopCallCount += 1
         isPlaying = false
         isInterrupted = false
+        isFading = false
+    }
+
+    func fadeOut(over duration: TimeInterval) {
+        fadeOutCallCount += 1
+        isFading = true
+        isPlaying = false
+        isFading = false
     }
 
     func simulateInterruptionBegan() {
@@ -80,6 +99,7 @@ final class AudioServiceStub: AudioService {
 final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
     private(set) var isPlaying = false
     private(set) var isInterrupted = false
+    private(set) var isFading = false
 
     var onInterruptionBegan: (() -> Void)?
     var onInterruptionEnded: ((Bool) -> Void)?
@@ -87,9 +107,12 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
 
     private var player: AVAudioPlayer?
     private var sampleURL: URL?
+    private var currentSound: QuietSound = .softTone
     private var observers: [NSObjectProtocol] = []
     private var shouldResumeAfterInterruption = false
+    private var fadeTask: Task<Void, Never>?
     private let session: AVAudioSession
+    private let baseVolume: Float = 0.35
 
     init(session: AVAudioSession = .sharedInstance()) {
         self.session = session
@@ -98,11 +121,12 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
     }
 
     deinit {
+        fadeTask?.cancel()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         player?.stop()
     }
 
-    func prepare() throws {
+    func prepare(sound: QuietSound) throws {
         do {
             try session.setCategory(
                 .playback,
@@ -114,13 +138,15 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
             throw SleepRoutineError.audioSessionUnavailable
         }
 
-        if player == nil {
-            let url = try Self.ensureSampleFile()
+        if player == nil || currentSound != sound {
+            player?.stop()
+            let url = try Self.ensureSampleFile(for: sound)
             sampleURL = url
+            currentSound = sound
             do {
                 let audioPlayer = try AVAudioPlayer(contentsOf: url)
                 audioPlayer.numberOfLoops = -1
-                audioPlayer.volume = 0.35
+                audioPlayer.volume = baseVolume
                 audioPlayer.delegate = self
                 audioPlayer.prepareToPlay()
                 player = audioPlayer
@@ -132,11 +158,13 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
 
     func play() throws {
         if player == nil {
-            try prepare()
+            try prepare(sound: currentSound)
         }
         guard let player else {
             throw SleepRoutineError.audioSessionUnavailable
         }
+        cancelFade()
+        player.volume = baseVolume
         do {
             try session.setActive(true, options: [])
         } catch {
@@ -151,23 +179,50 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
     }
 
     func pause() {
+        cancelFade()
         player?.pause()
         isPlaying = false
     }
 
     func stop() {
+        cancelFade()
         shouldResumeAfterInterruption = false
         player?.stop()
         player?.currentTime = 0
+        player?.volume = baseVolume
         isPlaying = false
         isInterrupted = false
         try? session.setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
+    func fadeOut(over duration: TimeInterval) {
+        guard isPlaying, !isFading, let player else { return }
+        cancelFade()
+        isFading = true
+        let startVolume = player.volume
+        let steps = max(1, Int(duration / 0.25))
+        fadeTask = Task { @MainActor in
+            for step in 1...steps {
+                if Task.isCancelled { return }
+                let t = Float(step) / Float(steps)
+                player.volume = startVolume * (1 - t)
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            if !Task.isCancelled {
+                self.stop()
+            }
+        }
+    }
+
+    private func cancelFade() {
+        fadeTask?.cancel()
+        fadeTask = nil
+        isFading = false
+    }
+
     // MARK: - AVAudioPlayerDelegate
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        // Looping player should not finish; keep state consistent if it does.
         isPlaying = player.isPlaying
     }
 
@@ -179,24 +234,20 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
 
     private func registerSessionObservers() {
         let center = NotificationCenter.default
-        observers.append(
-            center.addObserver(
-                forName: AVAudioSession.interruptionNotification,
-                object: session,
-                queue: .main
-            ) { [weak self] notification in
-                self?.handleInterruption(notification)
-            }
-        )
-        observers.append(
-            center.addObserver(
-                forName: AVAudioSession.routeChangeNotification,
-                object: session,
-                queue: .main
-            ) { [weak self] notification in
-                self?.handleRouteChange(notification)
-            }
-        )
+        observers.append(center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification)
+        })
+        observers.append(center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleRouteChange(notification)
+        })
     }
 
     private func handleInterruption(_ notification: Notification) {
@@ -216,7 +267,6 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
             let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
             let shouldResume = options.contains(.shouldResume) && shouldResumeAfterInterruption
-            // Routine layer decides whether to resume so state machine stays authoritative.
             onInterruptionEnded?(shouldResume)
         @unknown default:
             break
@@ -232,7 +282,6 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
 
         switch reason {
         case .oldDeviceUnavailable:
-            // Headphones / Bluetooth disconnected — pause app audio; do not claim to stop other apps.
             pause()
             onRouteChanged?(true)
         case .newDeviceAvailable, .categoryChange, .override, .wakeFromSleep,
@@ -243,14 +292,12 @@ final class AudioServiceLive: NSObject, AudioService, AVAudioPlayerDelegate {
         }
     }
 
-    private static func ensureSampleFile() throws -> URL {
+    private static func ensureSampleFile(for sound: QuietSound) throws -> URL {
         let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let url = directory.appendingPathComponent("quiet_night_tone.wav")
-        if !FileManager.default.fileExists(atPath: url.path) {
-            let data = SleepAudioSampleFactory.makeSoftToneWAV()
-            try data.write(to: url, options: .atomic)
-        }
+        let url = directory.appendingPathComponent("zy_quiet_\(sound.rawValue).wav")
+        let data = SleepAudioSampleFactory.makeWAV(for: sound)
+        try data.write(to: url, options: .atomic)
         return url
     }
 }

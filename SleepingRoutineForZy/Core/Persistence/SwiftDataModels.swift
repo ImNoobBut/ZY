@@ -10,6 +10,8 @@ final class PreferencesEntity {
     var preferredWakeHour: Int?
     var preferredWakeMinute: Int?
     var defaultAlarmEnabled: Bool
+    var bedtimeReminderEnabled: Bool = true
+    var selectedQuietSoundRaw: String = QuietSound.softTone.rawValue
     var selectedSpotifyURI: String?
     var selectedSpotifyTitle: String?
     var remoteMonitoringOptIn: Bool = false
@@ -23,6 +25,8 @@ final class PreferencesEntity {
         self.preferredWakeHour = preferences.preferredWakeTime?.hour
         self.preferredWakeMinute = preferences.preferredWakeTime?.minute
         self.defaultAlarmEnabled = preferences.defaultAlarmEnabled
+        self.bedtimeReminderEnabled = preferences.bedtimeReminderEnabled
+        self.selectedQuietSoundRaw = preferences.selectedQuietSound.rawValue
         self.selectedSpotifyURI = preferences.selectedSpotifyURI
         self.selectedSpotifyTitle = preferences.selectedSpotifyTitle
         self.remoteMonitoringOptIn = preferences.remoteMonitoringOptIn
@@ -37,6 +41,8 @@ final class PreferencesEntity {
         preferredWakeHour = preferences.preferredWakeTime?.hour
         preferredWakeMinute = preferences.preferredWakeTime?.minute
         defaultAlarmEnabled = preferences.defaultAlarmEnabled
+        bedtimeReminderEnabled = preferences.bedtimeReminderEnabled
+        selectedQuietSoundRaw = preferences.selectedQuietSound.rawValue
         selectedSpotifyURI = preferences.selectedSpotifyURI
         selectedSpotifyTitle = preferences.selectedSpotifyTitle
         remoteMonitoringOptIn = preferences.remoteMonitoringOptIn
@@ -58,6 +64,8 @@ final class PreferencesEntity {
             preferredBedtime: bedtime,
             preferredWakeTime: wake,
             defaultAlarmEnabled: defaultAlarmEnabled,
+            bedtimeReminderEnabled: bedtimeReminderEnabled,
+            selectedQuietSound: QuietSound(rawValue: selectedQuietSoundRaw) ?? .softTone,
             selectedSpotifyURI: selectedSpotifyURI,
             selectedSpotifyTitle: selectedSpotifyTitle,
             remoteMonitoringOptIn: remoteMonitoringOptIn,

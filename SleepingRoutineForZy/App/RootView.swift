@@ -33,7 +33,9 @@ private struct MainTabView: View {
     var body: some View {
         @Bindable var appState = appState
         TabView(selection: $appState.selectedTab) {
-            HomeView()
+            NavigationStack {
+                HomeView()
+            }
                 .tabItem {
                     Label(
                         String(localized: "tab.home", defaultValue: "Home"),
@@ -41,15 +43,6 @@ private struct MainTabView: View {
                     )
                 }
                 .tag(AppTab.home)
-
-            SleepTimerView()
-                .tabItem {
-                    Label(
-                        String(localized: "tab.sleep", defaultValue: "Sleep"),
-                        systemImage: "timer"
-                    )
-                }
-                .tag(AppTab.sleep)
 
             AlarmsView()
                 .tabItem {

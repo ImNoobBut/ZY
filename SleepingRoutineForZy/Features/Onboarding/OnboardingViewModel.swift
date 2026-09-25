@@ -142,6 +142,7 @@ final class OnboardingViewModel {
         preferences.preferredBedtime = bedtimeComponents
         preferences.preferredWakeTime = wakeComponents
         preferences.defaultAlarmEnabled = defaultAlarmEnabled
+        preferences.bedtimeReminderEnabled = true
 
         do {
             try preferencesRepository.save(preferences)
@@ -152,6 +153,8 @@ final class OnboardingViewModel {
         if defaultAlarmEnabled {
             try await saveDefaultAlarmIfNeeded(wakeComponents: wakeComponents)
         }
+
+        await BedtimeReminderScheduler.sync(from: preferences)
 
         return preferences
     }

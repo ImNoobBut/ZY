@@ -1,11 +1,38 @@
 import Foundation
 
+enum QuietSound: String, Codable, Equatable, Sendable, CaseIterable {
+    case softTone
+    case rain
+    case whiteNoise
+    case deepHum
+
+    var displayName: String {
+        switch self {
+        case .softTone:
+            return String(localized: "quiet_sound.soft_tone", defaultValue: "Soft tone")
+        case .rain:
+            return String(localized: "quiet_sound.rain", defaultValue: "Rain")
+        case .whiteNoise:
+            return String(localized: "quiet_sound.white_noise", defaultValue: "White noise")
+        case .deepHum:
+            return String(localized: "quiet_sound.deep_hum", defaultValue: "Deep hum")
+        }
+    }
+}
+
+/// Fade-out window for app-owned audio at end of sleep timer.
+enum SleepAudioFade {
+    static let fadeOutSeconds: TimeInterval = 300
+}
+
 struct UserPreferences: Codable, Equatable, Sendable {
     var hasCompletedOnboarding: Bool
     var defaultSleepTimer: TimeInterval
     var preferredBedtime: DateComponents?
     var preferredWakeTime: DateComponents?
     var defaultAlarmEnabled: Bool
+    var bedtimeReminderEnabled: Bool
+    var selectedQuietSound: QuietSound
     var selectedSpotifyURI: String?
     var selectedSpotifyTitle: String?
     /// User explicitly opts in to upload permitted status fields to the remote Admin backend.
@@ -18,11 +45,19 @@ struct UserPreferences: Codable, Equatable, Sendable {
         preferredBedtime: DateComponents(hour: 22, minute: 0),
         preferredWakeTime: DateComponents(hour: 7, minute: 0),
         defaultAlarmEnabled: true,
+        bedtimeReminderEnabled: true,
+        selectedQuietSound: .softTone,
         selectedSpotifyURI: nil,
         selectedSpotifyTitle: nil,
         remoteMonitoringOptIn: false,
         lastSuccessfulCheckIn: nil
     )
+
+    var preferredBedtimeLabel: String {
+        let hour = preferredBedtime?.hour ?? 22
+        let minute = preferredBedtime?.minute ?? 0
+        return String(format: "%02d:%02d", hour, minute)
+    }
 }
 
 enum MusicSource: String, Codable, Equatable, Sendable, CaseIterable {
@@ -75,7 +110,7 @@ enum Weekday: Int, Codable, CaseIterable, Sendable {
     }
 }
 
-enum AlarmSound: String, Codable, CaseIterable, Sendable {
+enum AlarmSound: String, Codable, Equatable, Sendable, CaseIterable {
     case `default`
     case gentle
     case chime
@@ -124,6 +159,8 @@ struct DeviceStatus: Codable, Equatable, Sendable {
     var nextAlarm: Date?
     var isPlayingOwnAudio: Bool
     var lastCheckIn: Date
+    var preferredBedtime: String?
+    var currentStreak: Int?
 }
 
 struct SleepSessionRecord: Codable, Identifiable, Equatable, Sendable {

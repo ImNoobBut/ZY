@@ -38,6 +38,8 @@ def main() -> None:
         "nextAlarm": "2026-09-25T07:00:00+08:00",
         "isPlayingOwnAudio": False,
         "lastCheckIn": "2026-09-24T16:05:00Z",
+        "preferredBedtime": "22:00",
+        "currentStreak": 3,
     }
     req("POST", "/v1/devices/check-in", {"deviceStatus": status}, token=reg["accessToken"])
     print("   check-in OK")
@@ -54,6 +56,8 @@ def main() -> None:
     )
     s = view["deviceStatus"]
     print("   routineActive:", s["routineActive"])
+    print("   preferredBedtime:", s.get("preferredBedtime"))
+    print("   currentStreak:", s.get("currentStreak"))
     print("   batteryLevel:", s.get("batteryLevel"))
     print("   spotifyConnected:", s["spotifyConnected"])
     print("   alarmEnabled:", s["alarmEnabled"])

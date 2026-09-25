@@ -100,7 +100,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 if (!mounted) return;
                 final ok = state.alarmsPermissionGranted == true;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(ok ? 'Alarm permission on.' : 'Permission denied — enable later in Settings.')),
+                  SnackBar(content: Text(ok ? 'Alarm permission on.' : 'Permission denied — enable later on the Alarms tab or in Settings.')),
                 );
               },
             ),
