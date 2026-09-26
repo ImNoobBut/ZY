@@ -153,16 +153,19 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
               title: const Text('Install'),
               subtitle: Text(
                 defaultTargetPlatform == TargetPlatform.iOS
-                    ? 'Get updates from ${state.config.iosInstallUrl}'
+                    ? (state.config.iosInstallUrl.isNotEmpty
+                        ? 'Get updates from ${state.config.iosInstallUrl}'
+                        : 'iOS installs use TestFlight / App Store when configured.')
                     : 'Get the Android APK from ${state.config.androidApkUrl}',
                 style: const TextStyle(color: AppTheme.secondaryText),
               ),
-              onTap: () => _openInstallLink(
-                context,
-                defaultTargetPlatform == TargetPlatform.iOS
+              onTap: () {
+                final url = defaultTargetPlatform == TargetPlatform.iOS
                     ? state.config.iosInstallUrl
-                    : state.config.androidApkUrl,
-              ),
+                    : state.config.androidApkUrl;
+                if (url.isEmpty) return;
+                _openInstallLink(context, url);
+              },
             ),
           ListTile(
             title: const Text('Backend'),
@@ -199,8 +202,12 @@ class _InstallDownloadsCard extends StatelessWidget {
     final target = detectInstallTarget();
     final showAndroid =
         target == InstallTarget.androidApk || target == InstallTarget.other;
-    final showIos =
-        target == InstallTarget.iosIpa || target == InstallTarget.other;
+    final showIos = config.iosInstallUrl.isNotEmpty &&
+        (target == InstallTarget.iosIpa || target == InstallTarget.other);
+
+    if (!showAndroid && !showIos) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

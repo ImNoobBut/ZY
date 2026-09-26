@@ -12,6 +12,19 @@ class StubAlarmScheduler implements AlarmScheduler {
   String get limitationCopy => 'Alarms are not scheduled in this environment.';
 
   @override
+  bool get permissionNeedsSystemSettings => false;
+
+  @override
+  String get permissionSettingsHint =>
+      'Open system or browser settings and allow notifications for this app.';
+
+  @override
+  Stream<SleepAlarm> get onAlarmFired => const Stream.empty();
+
+  @override
+  Future<void> dismissRinging() async {}
+
+  @override
   Future<void> initialize() async {}
 
   @override
@@ -33,9 +46,19 @@ class StubAlarmScheduler implements AlarmScheduler {
 
   @override
   Future<void> reconcile(List<SleepAlarm> alarms) async {
-    scheduled
-      ..clear()
-      ..addAll(alarms.where((a) => a.isEnabled));
+    final keep = alarms.map((a) => a.id).toSet();
+    for (final id in scheduled.map((a) => a.id).toList()) {
+      if (!keep.contains(id)) {
+        await cancel(id);
+      }
+    }
+    for (final alarm in alarms) {
+      if (alarm.isEnabled) {
+        await schedule(alarm);
+      } else {
+        await cancel(alarm.id);
+      }
+    }
   }
 
   bool bedtimeReminderScheduled = false;

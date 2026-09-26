@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -18,6 +19,10 @@ class MobileAlarmScheduler implements AlarmScheduler {
   bool _ready = false;
   bool _permissionPermanentlyDenied = false;
   bool _exactAlarmDenied = false;
+  /// Alarm IDs we have (or previously had) OS notifications for — survives
+  /// process restarts so deletes can cancel leftover schedules.
+  Set<String> _trackedIds = {};
+  static const _trackedIdsKey = 'zy_mobile_scheduled_alarm_ids';
 
   static const _channelId = 'zy_wake_alarms_v2';
   static const _channelName = 'Wake alarms';
@@ -92,7 +97,14 @@ class MobileAlarmScheduler implements AlarmScheduler {
         audioAttributesUsage: AudioAttributesUsage.alarm,
       ),
     );
+    final prefs = await SharedPreferences.getInstance();
+    _trackedIds = prefs.getStringList(_trackedIdsKey)?.toSet() ?? {};
     _ready = true;
+  }
+
+  Future<void> _persistTrackedIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_trackedIdsKey, _trackedIds.toList());
   }
 
   @override
@@ -130,18 +142,21 @@ class MobileAlarmScheduler implements AlarmScheduler {
   @override
   Future<bool> hasPermission() async {
     if (kIsWeb) return false;
+    await initialize();
     if (Platform.isAndroid) {
-      await initialize();
       final status = await Permission.notification.status;
       final canExact = await _android?.canScheduleExactNotifications();
       _permissionPermanentlyDenied = status.isPermanentlyDenied;
       _exactAlarmDenied = !(canExact ?? true);
       return status.isGranted && !_exactAlarmDenied;
     }
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    // iOS plugin does not expose a simple status API here; assume true after request.
-    return ios != null;
+    if (Platform.isIOS) {
+      final status = await Permission.notification.status;
+      _permissionPermanentlyDenied = status.isPermanentlyDenied;
+      _exactAlarmDenied = false;
+      return status.isGranted;
+    }
+    return false;
   }
 
   @override
@@ -150,16 +165,14 @@ class MobileAlarmScheduler implements AlarmScheduler {
     await cancel(alarm.id);
     if (!alarm.isEnabled) return;
 
-    final hasPerm = await hasPermission();
-    if (!hasPerm) {
-      final granted = await requestPermission();
-      if (!granted) {
-        throw Exception(
-          _exactAlarmDenied
-              ? 'Alarms & reminders permission is required to schedule wake alarms.'
-              : 'Notification permission is required to schedule alarms.',
-        );
-      }
+    // Never prompt / open settings from schedule/reconcile/bootstrap — only from
+    // an explicit user gesture (requestAlarmPermission).
+    if (!await hasPermission()) {
+      throw Exception(
+        _exactAlarmDenied
+            ? 'Alarms & reminders permission is required to schedule wake alarms.'
+            : 'Notification permission is required to schedule alarms.',
+      );
     }
 
     final details = NotificationDetails(
@@ -181,6 +194,8 @@ class MobileAlarmScheduler implements AlarmScheduler {
     );
 
     await _scheduleAlarmNotifications(alarm, details);
+    _trackedIds.add(alarm.id);
+    await _persistTrackedIds();
   }
 
   Future<void> _scheduleAlarmNotifications(
@@ -227,10 +242,20 @@ class MobileAlarmScheduler implements AlarmScheduler {
     for (var day = 1; day <= 7; day++) {
       await _plugin.cancel(_notifId(alarmId, day));
     }
+    if (_trackedIds.remove(alarmId)) {
+      await _persistTrackedIds();
+    }
   }
 
   @override
   Future<void> reconcile(List<SleepAlarm> alarms) async {
+    await initialize();
+    final keep = alarms.map((a) => a.id).toSet();
+    for (final id in _trackedIds.toList()) {
+      if (!keep.contains(id)) {
+        await cancel(id);
+      }
+    }
     for (final alarm in alarms) {
       if (alarm.isEnabled) {
         await schedule(alarm);
@@ -253,10 +278,8 @@ class MobileAlarmScheduler implements AlarmScheduler {
     await cancelBedtimeReminder();
     if (!enabled) return;
 
-    if (!await hasPermission()) {
-      final granted = await requestPermission();
-      if (!granted) return;
-    }
+    // Do not prompt from bedtime reconcile — user enables reminder in settings.
+    if (!await hasPermission()) return;
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();

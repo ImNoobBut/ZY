@@ -58,9 +58,9 @@ class AppConfig {
       androidApkUrl: apkDefine.isNotEmpty
           ? apkDefine
           : _defaultDownloadUrl('/downloads/zy-sleep.apk'),
-      iosInstallUrl: iosDefine.isNotEmpty
-          ? iosDefine
-          : _defaultDownloadUrl('/downloads/zy-sleep.ipa'),
+      // Prefer an explicit TestFlight / App Store URL; bare .ipa is not installable
+      // from Safari and often 404s when unpublished.
+      iosInstallUrl: iosDefine,
     );
   }
 

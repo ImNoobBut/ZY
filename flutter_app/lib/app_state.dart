@@ -59,6 +59,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _adminCommandPollTimer;
   bool _appInForeground = true;
   StreamSubscription<Uri>? _linkSub;
+  StreamSubscription<SleepAlarm>? _alarmFiredSub;
 
   int get currentStreak => StreakCalculator.currentStreak(
         sessions: sessions,
@@ -78,6 +79,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await admin.restore();
     await auth.restore();
     await alarmScheduler.initialize();
+    _alarmFiredSub?.cancel();
+    _alarmFiredSub = alarmScheduler.onAlarmFired.listen(_onAlarmFired);
     alarmsPermissionGranted = await alarmScheduler.hasPermission();
 
     await sync.start(onRemoteApplied: _applyRemoteSync);
@@ -294,6 +297,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _ticker?.cancel();
     _stopAdminCommandPolling();
     _linkSub?.cancel();
+    _alarmFiredSub?.cancel();
     audio.dispose();
     super.dispose();
   }
@@ -563,7 +567,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void _reconcileRoutine() {
     final routine = activeRoutine;
     if (routine?.startedAt == null || routine?.endsAt == null) {
+      final wasRunning = routineState == RoutineState.timerRunning;
       routineState = RoutineState.idle;
+      if (wasRunning) {
+        // Remote clear / deleted routine — stop local playback without writing a session.
+        unawaited(_stopPlaybackOnly());
+      }
       return;
     }
     if (DateTime.now().isAfter(routine!.endsAt!)) {
@@ -575,6 +584,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (routine.musicSource == MusicSource.local) {
       unawaited(_resumeLocalAudioAfterReconcile(left));
     }
+  }
+
+  Future<void> _stopPlaybackOnly() async {
+    await audio.cancelFade();
+    fadeStarted = false;
+    await audio.stop();
+    await spotify.pause();
+    _refreshMusicLabel();
+    notifyListeners();
+  }
+
+  Future<void> _onAlarmFired(SleepAlarm fired) async {
+    if (fired.repeatDays.isNotEmpty) return;
+    final idx = alarms.indexWhere((a) => a.id == fired.id);
+    if (idx < 0 || !alarms[idx].isEnabled) return;
+    final updated = [...alarms];
+    updated[idx].isEnabled = false;
+    await saveAlarms(updated);
   }
 
   Future<void> _resumeLocalAudioAfterReconcile(Duration? left) async {
@@ -827,8 +854,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final enabledAlarm = _firstEnabledAlarm();
     final next = enabledAlarm?.nextFireAfter();
     final status = DeviceStatus(
-      batteryLevel: kIsWeb ? null : 0.8,
-      isCharging: kIsWeb ? null : false,
+      batteryLevel: null,
+      isCharging: null,
       routineActive: routineState == RoutineState.timerRunning,
       routineStartedAt: activeRoutine?.startedAt,
       sleepTimerEndsAt: activeRoutine?.endsAt,
@@ -849,9 +876,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> disconnectAdmin() async {
+    // Revoke guardian tokens only — keep device auth so the user stays signed in.
     await admin.revokeAdminTokens();
     _stopAdminCommandPolling();
-    await admin.clear();
     preferences.remoteMonitoringOptIn = false;
     preferences.lastSuccessfulCheckInIso = null;
     preferences.touch();

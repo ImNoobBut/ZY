@@ -228,7 +228,23 @@ class SyncService extends ChangeNotifier {
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Sync push failed (${res.statusCode})');
     }
-    await store.saveOutbox([]);
+    // Keep mutations enqueued while the HTTP call was in flight.
+    final current = await store.loadOutbox();
+    await store.saveOutbox(outboxAfterSuccessfulPush(pushed: box, current: current));
+  }
+
+  /// Removes only the snapshot that was pushed; retains newer/in-flight mutations.
+  @visibleForTesting
+  static List<SyncMutation> outboxAfterSuccessfulPush({
+    required List<SyncMutation> pushed,
+    required List<SyncMutation> current,
+  }) {
+    bool same(SyncMutation a, SyncMutation b) =>
+        a.entityType == b.entityType &&
+        a.entityId == b.entityId &&
+        a.deleted == b.deleted &&
+        a.updatedAt.toUtc().isAtSameMomentAs(b.updatedAt.toUtc());
+    return current.where((m) => !pushed.any((p) => same(p, m))).toList();
   }
 
   Future<void> _pullAndMerge({bool forcePullAll = false}) async {
@@ -267,9 +283,11 @@ class SyncService extends ChangeNotifier {
           }
         case 'alarm':
           if (deleted) {
-            final before = alarms.length;
-            alarms = alarms.where((a) => a.id != id).toList();
-            if (alarms.length != before) changed = true;
+            final idx = alarms.indexWhere((a) => a.id == id);
+            if (idx >= 0 && remoteAt.isAfter(alarms[idx].updatedAt)) {
+              alarms = alarms.where((a) => a.id != id).toList();
+              changed = true;
+            }
           } else {
             final remote = SleepAlarm.fromJson(payload);
             final idx = alarms.indexWhere((a) => a.id == id);
@@ -295,7 +313,7 @@ class SyncService extends ChangeNotifier {
           }
         case 'routine':
           if (deleted) {
-            if (routine != null) {
+            if (routine != null && remoteAt.isAfter(routine.updatedAt)) {
               routine = null;
               changed = true;
             }
