@@ -170,9 +170,12 @@ ALLOWED_ADMIN_COMMANDS = frozenset(
     {
         "setAlarmEnabled",
         "setBedtime",
+        "setWakeTime",
         "startRoutine",
         "endRoutine",
         "stopAudio",
+        "startQuietAudio",
+        "extendSleepTimer",
     }
 )
 
@@ -295,6 +298,16 @@ def _assert_admin_device_access(db: Session, admin_device_id: str, device_id: st
         raise HTTPException(status_code=403, detail="Not authorized for this device")
 
 
+def _as_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return None
+
+
 def _validate_admin_command(command_type: str, payload: dict[str, Any]) -> dict[str, Any]:
     if command_type not in ALLOWED_ADMIN_COMMANDS:
         raise HTTPException(
@@ -305,14 +318,28 @@ def _validate_admin_command(command_type: str, payload: dict[str, Any]) -> dict[
         if "enabled" not in payload or not isinstance(payload["enabled"], bool):
             raise HTTPException(status_code=400, detail="setAlarmEnabled requires payload.enabled bool")
         return {"enabled": payload["enabled"]}
-    if command_type == "setBedtime":
-        hour = payload.get("hour")
-        minute = payload.get("minute")
-        if not isinstance(hour, int) or not isinstance(minute, int):
-            raise HTTPException(status_code=400, detail="setBedtime requires integer hour and minute")
+    if command_type in ("setBedtime", "setWakeTime"):
+        hour = _as_int(payload.get("hour"))
+        minute = _as_int(payload.get("minute"))
+        if hour is None or minute is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{command_type} requires integer hour and minute",
+            )
         if hour < 0 or hour > 23 or minute < 0 or minute > 59:
-            raise HTTPException(status_code=400, detail="setBedtime hour 0-23, minute 0-59")
+            raise HTTPException(
+                status_code=400,
+                detail=f"{command_type} hour 0-23, minute 0-59",
+            )
         return {"hour": hour, "minute": minute}
+    if command_type == "extendSleepTimer":
+        minutes = _as_int(payload.get("minutes"))
+        if minutes is None or minutes < 5 or minutes > 60:
+            raise HTTPException(
+                status_code=400,
+                detail="extendSleepTimer requires payload.minutes integer 5-60",
+            )
+        return {"minutes": minutes}
     return {}
 
 
@@ -550,6 +577,46 @@ def admin_logout(
     db.delete(admin)
     db.commit()
     return {"ok": True}
+
+
+@app.get("/v1/admin/devices")
+def admin_list_devices(
+    admin: AdminToken = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """List devices on the same account as the paired device (for guardian switcher)."""
+    paired = db.get(Device, admin.device_id)
+    if not paired:
+        raise HTTPException(status_code=401, detail="Admin token device missing")
+    devices = db.scalars(
+        select(Device)
+        .where(Device.account_id == paired.account_id)
+        .order_by(Device.created_at.asc())
+    ).all()
+    out: list[dict[str, Any]] = []
+    for device in devices:
+        row = db.get(DeviceStatusRow, device.id)
+        last_check_in: str | None = None
+        if row:
+            payload = row.get_payload()
+            raw = payload.get("lastCheckIn")
+            if isinstance(raw, str):
+                last_check_in = raw
+            elif row.updated_at is not None:
+                last_check_in = row.updated_at.isoformat()
+        out.append(
+            {
+                "deviceId": device.id,
+                "displayName": device.display_name,
+                "lastCheckIn": last_check_in,
+                "hasStatus": row is not None,
+            }
+        )
+    return {
+        "accountId": paired.account_id,
+        "pairedDeviceId": paired.id,
+        "devices": out,
+    }
 
 
 @app.get("/v1/devices/{device_id}/status")

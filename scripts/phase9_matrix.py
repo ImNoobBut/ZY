@@ -197,6 +197,61 @@ def check_api_smoke() -> None:
     status, st = api("GET", f"/v1/devices/{device_id}/status", token=admin)
     record(status == 200 and isinstance(st, dict) and "deviceStatus" in st, "GET device status (admin bearer)")
 
+    status, devices = api("GET", "/v1/admin/devices", token=admin)
+    record(
+        status == 200
+        and isinstance(devices, dict)
+        and devices.get("pairedDeviceId") == device_id
+        and isinstance(devices.get("devices"), list)
+        and any(d.get("deviceId") == device_id for d in devices["devices"]),
+        "GET /v1/admin/devices lists paired device",
+    )
+
+    status, cmd = api(
+        "POST",
+        f"/v1/devices/{device_id}/commands",
+        {"type": "setWakeTime", "payload": {"hour": 7, "minute": 15}},
+        token=admin,
+    )
+    record(
+        status == 200 and isinstance(cmd, dict) and cmd.get("type") == "setWakeTime",
+        "POST admin command setWakeTime",
+    )
+    status, cmd_bad = api(
+        "POST",
+        f"/v1/devices/{device_id}/commands",
+        {"type": "extendSleepTimer", "payload": {"minutes": 2}},
+        token=admin,
+    )
+    record(status == 400, "extendSleepTimer rejects minutes < 5")
+
+    # Second device on same account — admin can list both and command the other.
+    status, joined = api(
+        "POST",
+        "/v1/devices/join",
+        {"pairingCode": pairing, "displayName": "Phase9 Matrix Phone 2"},
+    )
+    if status == 200 and isinstance(joined, dict) and "deviceId" in joined:
+        other_id = joined["deviceId"]
+        status, devices2 = api("GET", "/v1/admin/devices", token=admin)
+        ids = {d.get("deviceId") for d in (devices2.get("devices") or [])} if isinstance(devices2, dict) else set()
+        record(
+            status == 200 and device_id in ids and other_id in ids,
+            "GET /v1/admin/devices lists same-account devices",
+        )
+        status, cmd_other = api(
+            "POST",
+            f"/v1/devices/{other_id}/commands",
+            {"type": "startQuietAudio", "payload": {}},
+            token=admin,
+        )
+        record(
+            status == 200 and isinstance(cmd_other, dict) and cmd_other.get("type") == "startQuietAudio",
+            "Admin can command another same-account device",
+        )
+    else:
+        skip("Multi-device admin list", f"join failed ({status})")
+
     # Re-pair must revoke old admin token
     status, pair2 = api("POST", "/v1/admin/pair", {"pairingCode": pairing})
     record(status == 200, "Re-pair issues new admin token")

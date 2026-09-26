@@ -797,6 +797,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           throw Exception('Invalid bedtime payload');
         }
         await updateBedtimePrefs(bedtimeHour: hour, bedtimeMinute: minute);
+      case 'setWakeTime':
+        final hour = (payload['hour'] as num?)?.toInt();
+        final minute = (payload['minute'] as num?)?.toInt();
+        if (hour == null || minute == null) {
+          throw Exception('Invalid wake time payload');
+        }
+        await _setWakeTimeFromRemote(hour, minute);
       case 'startRoutine':
         if (routineState == RoutineState.idle) {
           await startRoutine();
@@ -811,8 +818,72 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         await audio.stop();
         _refreshMusicLabel();
         notifyListeners();
+      case 'startQuietAudio':
+        await _startQuietAudioFromRemote();
+      case 'extendSleepTimer':
+        final minutes = (payload['minutes'] as num?)?.toInt();
+        if (minutes == null || minutes < 5 || minutes > 60) {
+          throw Exception('Invalid extendSleepTimer payload');
+        }
+        await _extendSleepTimerFromRemote(minutes);
       default:
         throw Exception('Unknown admin command: $type');
+    }
+  }
+
+  Future<void> _setWakeTimeFromRemote(int hour, int minute) async {
+    await updateBedtimePrefs(wakeHour: hour, wakeMinute: minute);
+    if (alarms.isEmpty) {
+      if (preferences.defaultAlarmEnabled) {
+        await saveAlarms([
+          SleepAlarm(
+            id: const Uuid().v4(),
+            hour: hour,
+            minute: minute,
+            repeatDays: {1, 2, 3, 4, 5},
+            isEnabled: true,
+          ),
+        ]);
+      }
+      return;
+    }
+    await saveAlarms(
+      alarms
+          .map((a) => a.copyWith(hour: hour, minute: minute))
+          .toList(),
+    );
+  }
+
+  Future<void> _startQuietAudioFromRemote() async {
+    await audio.cancelFade();
+    fadeStarted = false;
+    final ok = await audio.play(preferences.selectedQuietSound);
+    if (!ok) {
+      throw Exception(audio.lastError ?? 'Could not start quiet sound');
+    }
+    musicLabel = preferences.selectedQuietSound.displayName;
+    notifyListeners();
+    if (preferences.remoteMonitoringOptIn) {
+      unawaited(checkInIfNeeded());
+    }
+  }
+
+  Future<void> _extendSleepTimerFromRemote(int minutes) async {
+    final routine = activeRoutine;
+    if (routine == null || routineState != RoutineState.timerRunning) {
+      return;
+    }
+    final base = routine.endsAt ?? DateTime.now();
+    final from = base.isAfter(DateTime.now()) ? base : DateTime.now();
+    routine.endsAt = from.add(Duration(minutes: minutes));
+    routine.sleepTimerDurationSeconds += minutes * 60;
+    routine.touch();
+    fadeStarted = false;
+    await store.saveActiveRoutine(routine);
+    unawaited(sync.enqueueRoutine(routine));
+    notifyListeners();
+    if (preferences.remoteMonitoringOptIn) {
+      unawaited(checkInIfNeeded());
     }
   }
 

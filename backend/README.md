@@ -54,6 +54,7 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 | POST | `/v1/devices/check-in` | Bearer device | Upload opted-in `deviceStatus` |
 | POST | `/v1/admin/pair` | none | Exchange pairing code for admin token |
 | POST | `/v1/admin/logout` | Bearer admin | Revoke this guardian session |
+| GET | `/v1/admin/devices` | Bearer admin | List same-account devices for the guardian switcher |
 | GET | `/v1/devices/{id}/status` | Bearer admin | Read latest status |
 | POST | `/v1/devices/{id}/commands` | Bearer admin | Queue a remote control command |
 | GET | `/v1/devices/commands/pending` | Bearer device | List unacked admin commands |
@@ -62,7 +63,7 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 | GET | `/v1/sync?since=` | Bearer device | Pull account sync changes |
 | POST | `/v1/sync` | Bearer device | Push LWW mutations (preferences, alarm, session, routine) |
 
-Allowed admin command types: `setAlarmEnabled`, `setBedtime`, `startRoutine`, `endRoutine`, `stopAudio`. Commands are applied when the phone app polls (while open).
+Allowed admin command types: `setAlarmEnabled`, `setBedtime`, `setWakeTime`, `startRoutine`, `endRoutine`, `stopAudio`, `startQuietAudio`, `extendSleepTimer`. Commands are applied when the phone app polls (while open).
 
 ## Sync model
 

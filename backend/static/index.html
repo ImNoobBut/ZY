@@ -11,6 +11,9 @@
       --text: rgba(255,255,255,0.95);
       --muted: rgba(255,255,255,0.55);
       --accent: #8c7ae6;
+      --warn: #e8b4b8;
+      --ok: #9ad4b1;
+      --err: #f07a7a;
     }
     * { box-sizing: border-box; }
     body {
@@ -21,8 +24,9 @@
       background: linear-gradient(180deg, #0f1424 0%, #1a1830 100%);
       padding: 24px;
     }
-    main { max-width: 520px; margin: 0 auto; }
+    main { max-width: 640px; margin: 0 auto; }
     h1 { font-weight: 600; font-size: 1.75rem; margin: 0 0 8px; }
+    h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 12px; }
     p.lead { color: var(--muted); margin: 0 0 24px; line-height: 1.45; }
     .card {
       background: var(--card);
@@ -30,18 +34,26 @@
       padding: 20px;
       margin-bottom: 16px;
     }
-    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-    input, input[type="time"] {
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    input, input[type="time"], select {
       width: 100%;
       padding: 12px 14px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.15);
       background: rgba(0,0,0,0.25);
       color: var(--text);
       font-size: 1.1rem;
       margin-bottom: 12px;
       color-scheme: dark;
     }
+    select { cursor: pointer; }
     button {
       width: 100%;
       padding: 12px;
@@ -54,8 +66,17 @@
       cursor: pointer;
     }
     button:disabled { opacity: 0.5; cursor: default; }
-    button.secondary { background: transparent; border: 1.5px solid var(--accent); margin-top: 8px; }
-    button.danger { background: transparent; border: 1.5px solid #e8b4b8; color: #e8b4b8; margin-top: 8px; }
+    button.secondary {
+      background: transparent;
+      border: 1.5px solid var(--accent);
+      margin-top: 8px;
+    }
+    button.danger {
+      background: transparent;
+      border: 1.5px solid var(--warn);
+      color: var(--warn);
+      margin-top: 8px;
+    }
     button.mini {
       width: auto;
       flex: 1;
@@ -64,23 +85,70 @@
       margin: 0;
     }
     button.mini.secondary { margin-top: 0; }
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
     .row:last-child { border-bottom: 0; }
+    .row strong { text-align: right; font-weight: 600; }
     .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .muted { color: var(--muted); font-size: 0.9rem; }
-    .warn { color: #e8b4b8; font-size: 0.85rem; margin-top: 12px; }
-    .error { color: #f07a7a; margin-top: 8px; }
-    .ok { color: #9ad4b1; margin-top: 8px; }
-    .controls { margin-top: 16px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
-    .controls h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 12px; }
+    .warn { color: var(--warn); font-size: 0.85rem; margin-top: 12px; }
+    .error { color: var(--err); margin-top: 8px; }
+    .ok { color: var(--ok); margin-top: 8px; }
+    .stale-banner {
+      display: none;
+      background: rgba(232, 180, 184, 0.12);
+      border: 1px solid rgba(232, 180, 184, 0.35);
+      color: var(--warn);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .stale-banner.visible { display: block; }
+    .expiry-banner {
+      display: none;
+      background: rgba(140, 122, 230, 0.12);
+      border: 1px solid rgba(140, 122, 230, 0.35);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .expiry-banner.visible { display: block; }
+    .section-divider {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
     .control-block { margin-bottom: 14px; }
     .control-block label { margin-bottom: 8px; }
-    .bedtime-row { display: flex; gap: 8px; align-items: stretch; }
-    .bedtime-row input { margin-bottom: 0; flex: 1; }
-    .bedtime-row button { width: auto; padding: 0 16px; }
-    .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+    .time-row { display: flex; gap: 8px; align-items: stretch; }
+    .time-row input { margin-bottom: 0; flex: 1; }
+    .time-row button { width: auto; padding: 0 16px; }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
     .header-row h1 { margin: 0; }
     .logout-top { width: auto; padding: 8px 14px; font-size: 0.85rem; margin: 0; }
+    .device-single {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+    .hint { color: var(--muted); font-size: 0.8rem; margin: 0 0 8px; }
   </style>
 </head>
 <body>
@@ -99,17 +167,34 @@
     </section>
 
     <section class="card" id="status-card" hidden>
-      <div class="row"><span class="muted">Routine</span><strong id="routine">—</strong></div>
-      <div class="row"><span class="muted">Bedtime</span><strong id="bedtime">—</strong></div>
-      <div class="row"><span class="muted">Streak</span><strong id="streak">—</strong></div>
-      <div class="row"><span class="muted">Battery</span><strong id="battery">—</strong></div>
-      <div class="row"><span class="muted">Charging</span><strong id="charging">—</strong></div>
-      <div class="row"><span class="muted">Spotify</span><strong id="spotify">—</strong></div>
-      <div class="row"><span class="muted">Alarm</span><strong id="alarm">—</strong></div>
-      <div class="row"><span class="muted">App audio</span><strong id="audio">—</strong></div>
-      <div class="row"><span class="muted">Last updated</span><strong id="updated">—</strong></div>
+      <div id="expiry-banner" class="expiry-banner" role="status"></div>
+      <div id="stale-banner" class="stale-banner" role="status">
+        Zy may be offline or the app is closed. Status won’t update until the app is open again.
+      </div>
 
-      <div class="controls">
+      <div id="device-block">
+        <label for="device-select" id="device-select-label">Device</label>
+        <select id="device-select" hidden></select>
+        <p class="device-single" id="device-single" hidden></p>
+      </div>
+
+      <div class="section-divider" style="margin-top: 8px; padding-top: 8px; border-top: 0;">
+        <h2>Status</h2>
+        <div class="row"><span class="muted">Routine</span><strong id="routine">—</strong></div>
+        <div class="row"><span class="muted">Routine started</span><strong id="routine-started">—</strong></div>
+        <div class="row"><span class="muted">Sleep timer ends</span><strong id="timer-ends">—</strong></div>
+        <div class="row"><span class="muted">Bedtime</span><strong id="bedtime">—</strong></div>
+        <div class="row"><span class="muted">Next alarm</span><strong id="next-alarm">—</strong></div>
+        <div class="row"><span class="muted">Streak</span><strong id="streak">—</strong></div>
+        <div class="row"><span class="muted">Battery</span><strong id="battery">—</strong></div>
+        <div class="row"><span class="muted">Charging</span><strong id="charging">—</strong></div>
+        <div class="row"><span class="muted">Spotify</span><strong id="spotify">—</strong></div>
+        <div class="row"><span class="muted">Alarm</span><strong id="alarm">—</strong></div>
+        <div class="row"><span class="muted">App audio</span><strong id="audio">—</strong></div>
+        <div class="row"><span class="muted">Last updated</span><strong id="updated">—</strong></div>
+      </div>
+
+      <div class="section-divider controls" id="controls">
         <h2>Remote controls</h2>
         <div class="control-block">
           <label>Alarm</label>
@@ -120,9 +205,16 @@
         </div>
         <div class="control-block">
           <label for="bedtime-input">Bedtime</label>
-          <div class="bedtime-row">
+          <div class="time-row">
             <input id="bedtime-input" type="time" value="22:00" />
             <button id="bedtime-apply-btn" type="button">Apply</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label for="wake-input">Wake time</label>
+          <div class="time-row">
+            <input id="wake-input" type="time" value="07:00" />
+            <button id="wake-apply-btn" type="button">Apply</button>
           </div>
         </div>
         <div class="control-block">
@@ -133,8 +225,19 @@
           </div>
         </div>
         <div class="control-block">
-          <label>App audio</label>
-          <button class="mini secondary" id="audio-stop-btn" type="button" style="width:100%">Stop</button>
+          <label>Extend sleep timer</label>
+          <p class="hint">Applies only while a routine is active</p>
+          <div class="row-actions">
+            <button class="mini secondary" id="extend-15-btn" type="button">+15 min</button>
+            <button class="mini secondary" id="extend-30-btn" type="button">+30 min</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label>Quiet audio</label>
+          <div class="row-actions">
+            <button class="mini" id="audio-start-btn" type="button">Start</button>
+            <button class="mini secondary" id="audio-stop-btn" type="button">Stop</button>
+          </div>
         </div>
       </div>
 
@@ -146,7 +249,14 @@
   </main>
   <script>
     const storageKey = "zyAdminSession";
+    const STALE_MS = 2 * 60 * 1000;
+    const EXPIRY_WARN_MS = 2 * 60 * 60 * 1000;
+    const REFRESH_MS = 15000;
+
     let session = JSON.parse(localStorage.getItem(storageKey) || "null");
+    let refreshTimer = null;
+    let commandInFlight = false;
+    let devicesCache = [];
 
     const pairCard = document.getElementById("pair-card");
     const statusCard = document.getElementById("status-card");
@@ -154,6 +264,12 @@
     const logoutTopBtn = document.getElementById("logout-top-btn");
     const pairMsg = document.getElementById("pair-msg");
     const statusMsg = document.getElementById("status-msg");
+    const staleBanner = document.getElementById("stale-banner");
+    const expiryBanner = document.getElementById("expiry-banner");
+    const deviceSelect = document.getElementById("device-select");
+    const deviceSingle = document.getElementById("device-single");
+    const deviceSelectLabel = document.getElementById("device-select-label");
+    const controls = document.getElementById("controls");
 
     function show(el, text, cls) {
       el.hidden = !text;
@@ -161,14 +277,51 @@
       el.className = cls || "";
     }
 
+    function activeDeviceId() {
+      if (!session) return null;
+      return session.selectedDeviceId || session.deviceId;
+    }
+
+    function persistSession() {
+      localStorage.setItem(storageKey, JSON.stringify(session));
+    }
+
+    function stopRefresh() {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    function startRefresh() {
+      stopRefresh();
+      if (!session) return;
+      refreshTimer = setInterval(() => {
+        if (document.hidden) return;
+        loadStatus({ quiet: true });
+      }, REFRESH_MS);
+    }
+
+    function setControlsDisabled(disabled) {
+      controls.querySelectorAll("button, input, select").forEach((el) => {
+        el.disabled = disabled;
+      });
+      deviceSelect.disabled = disabled;
+    }
+
     function clearSession() {
+      stopRefresh();
       session = null;
+      devicesCache = [];
       localStorage.removeItem(storageKey);
       pairCard.hidden = false;
       statusCard.hidden = true;
       lead.hidden = false;
       logoutTopBtn.hidden = true;
+      staleBanner.classList.remove("visible");
+      expiryBanner.classList.remove("visible");
       document.getElementById("code").value = "";
+      setControlsDisabled(false);
     }
 
     async function logout() {
@@ -189,11 +342,123 @@
       return { Authorization: `Bearer ${session.adminToken}` };
     }
 
-    async function sendCommand(type, payload) {
+    function sessionExpiredMs() {
+      if (!session || !session.pairedAt || !session.expiresIn) return null;
+      return session.pairedAt + (session.expiresIn * 1000);
+    }
+
+    function updateExpiryBanner() {
+      const ends = sessionExpiredMs();
+      if (!ends) {
+        expiryBanner.classList.remove("visible");
+        return;
+      }
+      const left = ends - Date.now();
+      if (left <= 0) {
+        clearSession();
+        show(pairMsg, "Session expired. Pair again.", "error");
+        return;
+      }
+      if (left <= EXPIRY_WARN_MS) {
+        const mins = Math.max(1, Math.round(left / 60000));
+        expiryBanner.textContent =
+          mins >= 60
+            ? `Guardian session expires in about ${Math.round(mins / 60)} hour(s). Re-pair if needed.`
+            : `Guardian session expires in about ${mins} minute(s). Re-pair if needed.`;
+        expiryBanner.classList.add("visible");
+      } else {
+        expiryBanner.classList.remove("visible");
+      }
+    }
+
+    function formatWhen(iso) {
+      if (!iso) return "—";
+      try {
+        return new Date(iso).toLocaleString();
+      } catch (_) {
+        return "—";
+      }
+    }
+
+    function parseTimeLabel(label) {
+      if (!label || typeof label !== "string") return null;
+      const m = label.trim().match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return null;
+      const h = String(Math.min(23, parseInt(m[1], 10))).padStart(2, "0");
+      const min = String(Math.min(59, parseInt(m[2], 10))).padStart(2, "0");
+      return `${h}:${min}`;
+    }
+
+    function renderDevicePicker() {
+      const devices = devicesCache || [];
+      if (devices.length === 0) {
+        deviceSelect.hidden = true;
+        deviceSingle.hidden = true;
+        deviceSelectLabel.hidden = true;
+        return;
+      }
+      deviceSelectLabel.hidden = false;
+      const current = activeDeviceId();
+      if (devices.length === 1) {
+        deviceSelect.hidden = true;
+        deviceSingle.hidden = false;
+        const d = devices[0];
+        deviceSingle.textContent = d.displayName || "Zy device";
+        if (session.selectedDeviceId !== d.deviceId) {
+          session.selectedDeviceId = d.deviceId;
+          persistSession();
+        }
+        return;
+      }
+      deviceSingle.hidden = true;
+      deviceSelect.hidden = false;
+      deviceSelect.innerHTML = "";
+      devices.forEach((d) => {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        const staleHint = d.lastCheckIn ? "" : " (no status yet)";
+        opt.textContent = `${d.displayName || "Zy device"}${staleHint}`;
+        if (d.deviceId === current) opt.selected = true;
+        deviceSelect.appendChild(opt);
+      });
+      if (!devices.some((d) => d.deviceId === current) && devices[0]) {
+        session.selectedDeviceId = devices[0].deviceId;
+        persistSession();
+        deviceSelect.value = devices[0].deviceId;
+      }
+    }
+
+    async function loadDevices() {
       if (!session) return;
+      try {
+        const res = await fetch("/v1/admin/devices", { headers: authHeaders() });
+        if (res.status === 401) {
+          clearSession();
+          show(pairMsg, "Session expired. Pair again.", "error");
+          return;
+        }
+        if (!res.ok) throw new Error("Could not load devices.");
+        const data = await res.json();
+        devicesCache = data.devices || [];
+        if (!session.selectedDeviceId) {
+          session.selectedDeviceId = session.deviceId;
+          persistSession();
+        }
+        renderDevicePicker();
+      } catch (e) {
+        show(statusMsg, e.message || "Could not load devices", "error");
+      }
+    }
+
+    async function sendCommand(type, payload) {
+      if (!session || commandInFlight) return;
+      const deviceId = activeDeviceId();
+      if (!deviceId) return;
+      commandInFlight = true;
+      setControlsDisabled(true);
       show(statusMsg, "", "ok");
       try {
-        const res = await fetch(`/v1/devices/${session.deviceId}/commands`, {
+        const res = await fetch(`/v1/devices/${deviceId}/commands`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -218,6 +483,9 @@
         setTimeout(() => { loadStatus({ quiet: true }); }, 2500);
       } catch (e) {
         show(statusMsg, e.message || "Command failed", "error");
+      } finally {
+        commandInFlight = false;
+        if (session) setControlsDisabled(false);
       }
     }
 
@@ -238,21 +506,19 @@
           } catch (_) {}
           throw new Error(detail);
         }
-        session = await res.json();
-        localStorage.setItem(storageKey, JSON.stringify(session));
+        const data = await res.json();
+        session = {
+          ...data,
+          selectedDeviceId: data.deviceId,
+          pairedAt: Date.now()
+        };
+        persistSession();
+        await loadDevices();
         await loadStatus();
+        startRefresh();
       } catch (e) {
         show(pairMsg, e.message || "Pairing failed", "error");
       }
-    }
-
-    function parseBedtimeLabel(label) {
-      if (!label || typeof label !== "string") return null;
-      const m = label.trim().match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return null;
-      const h = String(Math.min(23, parseInt(m[1], 10))).padStart(2, "0");
-      const min = String(Math.min(59, parseInt(m[2], 10))).padStart(2, "0");
-      return `${h}:${min}`;
     }
 
     async function loadStatus(opts) {
@@ -261,9 +527,14 @@
       statusCard.hidden = false;
       lead.hidden = true;
       logoutTopBtn.hidden = false;
+      updateExpiryBanner();
       if (!opts || !opts.quiet) show(statusMsg, "", "ok");
+
+      const deviceId = activeDeviceId();
+      if (!deviceId) return;
+
       try {
-        const res = await fetch(`/v1/devices/${session.deviceId}/status`, {
+        const res = await fetch(`/v1/devices/${deviceId}/status`, {
           headers: authHeaders()
         });
         if (res.status === 401) {
@@ -272,14 +543,30 @@
           return;
         }
         if (res.status === 404) {
+          staleBanner.classList.add("visible");
+          document.getElementById("routine").textContent = "—";
+          document.getElementById("routine-started").textContent = "—";
+          document.getElementById("timer-ends").textContent = "—";
+          document.getElementById("bedtime").textContent = "—";
+          document.getElementById("next-alarm").textContent = "—";
+          document.getElementById("streak").textContent = "—";
+          document.getElementById("battery").textContent = "—";
+          document.getElementById("charging").textContent = "—";
+          document.getElementById("spotify").textContent = "—";
+          document.getElementById("alarm").textContent = "—";
+          document.getElementById("audio").textContent = "—";
+          document.getElementById("updated").textContent = "—";
           show(statusMsg, "Paired, but Zy hasn’t checked in yet. Ask them to open the app.", "warn");
           return;
         }
         if (!res.ok) throw new Error("Could not load status.");
         const data = await res.json();
-        const s = data.deviceStatus;
+        const s = data.deviceStatus || {};
         document.getElementById("routine").textContent = s.routineActive ? "Active" : "Idle";
+        document.getElementById("routine-started").textContent = formatWhen(s.routineStartedAt);
+        document.getElementById("timer-ends").textContent = formatWhen(s.sleepTimerEndsAt);
         document.getElementById("bedtime").textContent = s.preferredBedtime || "—";
+        document.getElementById("next-alarm").textContent = formatWhen(s.nextAlarm);
         document.getElementById("streak").textContent =
           s.currentStreak == null ? "—" : `${s.currentStreak} night${s.currentStreak === 1 ? "" : "s"}`;
         document.getElementById("battery").textContent =
@@ -289,11 +576,26 @@
         document.getElementById("spotify").textContent = s.spotifyConnected ? "Connected" : "Not connected";
         document.getElementById("alarm").textContent = s.alarmEnabled ? "On" : "Off";
         document.getElementById("audio").textContent = s.isPlayingOwnAudio ? "Playing" : "Stopped";
-        document.getElementById("updated").textContent = s.lastCheckIn
-          ? new Date(s.lastCheckIn).toLocaleString()
-          : "—";
-        const bt = parseBedtimeLabel(s.preferredBedtime);
+        document.getElementById("updated").textContent = formatWhen(s.lastCheckIn);
+
+        const bt = parseTimeLabel(s.preferredBedtime);
         if (bt) document.getElementById("bedtime-input").value = bt;
+        if (s.nextAlarm) {
+          try {
+            const d = new Date(s.nextAlarm);
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            document.getElementById("wake-input").value = `${hh}:${mm}`;
+          } catch (_) {}
+        }
+
+        let stale = true;
+        if (s.lastCheckIn) {
+          const age = Date.now() - new Date(s.lastCheckIn).getTime();
+          stale = Number.isNaN(age) || age > STALE_MS;
+        }
+        staleBanner.classList.toggle("visible", stale);
+
         if (!opts || !opts.quiet) show(statusMsg, "Updated", "ok");
       } catch (e) {
         show(statusMsg, e.message || "Load failed", "error");
@@ -312,8 +614,14 @@
       sendCommand("startRoutine"));
     document.getElementById("routine-end-btn").addEventListener("click", () =>
       sendCommand("endRoutine"));
+    document.getElementById("audio-start-btn").addEventListener("click", () =>
+      sendCommand("startQuietAudio"));
     document.getElementById("audio-stop-btn").addEventListener("click", () =>
       sendCommand("stopAudio"));
+    document.getElementById("extend-15-btn").addEventListener("click", () =>
+      sendCommand("extendSleepTimer", { minutes: 15 }));
+    document.getElementById("extend-30-btn").addEventListener("click", () =>
+      sendCommand("extendSleepTimer", { minutes: 30 }));
     document.getElementById("bedtime-apply-btn").addEventListener("click", () => {
       const raw = document.getElementById("bedtime-input").value;
       if (!raw) {
@@ -323,8 +631,48 @@
       const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
       sendCommand("setBedtime", { hour: h, minute: m });
     });
+    document.getElementById("wake-apply-btn").addEventListener("click", () => {
+      const raw = document.getElementById("wake-input").value;
+      if (!raw) {
+        show(statusMsg, "Pick a wake time first.", "error");
+        return;
+      }
+      const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
+      sendCommand("setWakeTime", { hour: h, minute: m });
+    });
+    deviceSelect.addEventListener("change", async () => {
+      if (!session) return;
+      session.selectedDeviceId = deviceSelect.value;
+      persistSession();
+      await loadStatus();
+    });
 
-    if (session) loadStatus();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && session) {
+        loadStatus({ quiet: true });
+      }
+    });
+
+    (async function init() {
+      if (!session) return;
+      if (!session.pairedAt) {
+        session.pairedAt = Date.now();
+        persistSession();
+      }
+      const ends = sessionExpiredMs();
+      if (ends != null && ends <= Date.now()) {
+        clearSession();
+        show(pairMsg, "Session expired. Pair again.", "error");
+        return;
+      }
+      if (!session.selectedDeviceId) {
+        session.selectedDeviceId = session.deviceId;
+        persistSession();
+      }
+      await loadDevices();
+      await loadStatus();
+      startRefresh();
+    })();
   </script>
 </body>
 </html>
