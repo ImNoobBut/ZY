@@ -700,8 +700,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       preferences.touch();
       await store.savePreferences(preferences);
       errorMessage =
-          'Could not reach Admin backend at ${config.backendBaseUrl}. '
-          'Start it with: python -m uvicorn main:app --host 127.0.0.1 --port 8081\n$e';
+          'Could not reach the server at ${config.backendBaseUrl}. Check your connection and try again.\n$e';
       infoMessage = null;
       rethrow;
     } finally {

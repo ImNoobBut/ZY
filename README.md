@@ -4,7 +4,7 @@
 
 **Sleeping Routine for Zy** is a calm, privacy-first iPhone app that helps Zy keep a consistent bedtime routine: sleep timer, music (including Spotify where supported), wake alarms via local notifications, and an optional **remote Admin** status dashboard for a guardian.
 
-This repository currently contains **Phase 8 — Privacy / security audit**: hardened Remote Admin API (no pairing codes on `/health`, admin token TTL + revoke-on-repair, auth/pair rate limits), Flutter secure credential storage, corrected privacy copy, plus Phases 1–7 (routine, alarms, Spotify, Remote Admin).
+This repository currently contains **Phase 9 — Device test matrix**: automated contract/API harness (`scripts/phase9_matrix.py`), CI for Flutter tests, plus Phases 1–8 (routine, alarms, Spotify, Remote Admin, privacy/security hardening). Physical iPhone / Android / Chrome rows remain a manual owner checklist.
 
 ## Features
 
@@ -28,7 +28,7 @@ This repository currently contains **Phase 8 — Privacy / security audit**: har
 | Flutter Android exact alarms + Spotify deep link | MVP complete |
 | Flutter web best-effort reminders | MVP complete |
 | Privacy / security audit | Phase 8 complete |
-| Full device test matrix | Phase 9 |
+| Full device test matrix | Phase 9 complete (automated subset + manual checklist) |
 
 ## Requirements
 
@@ -214,6 +214,20 @@ Hardening shipped with this phase:
 4. **Android** — grant notifications + exact alarms; set alarm; force-stop app; confirm fire; complete Spotify OAuth (custom scheme returns into the app).
 5. **Chrome web** — Spotify connect via `http://127.0.0.1:7357`; confirm alarm limitation copy; browser reminders only while the tab is open.
 
+### Phase 9 — automated matrix subset
+
+Run without phones (repo root; backend must be listening on `:8081`):
+
+```bash
+cd backend && python main.py
+# other terminal:
+python scripts/phase9_matrix.py
+```
+
+CI (`.github/workflows/ci.yml`) also runs the matrix against a started API and `flutter test` / `flutter analyze`.
+
+**Last local automated run:** 29 pass / 0 fail (static platform contracts + API smoke). Physical device rows above are still owner sign-off.
+
 ## Admin Architecture
 
 **Remote Admin** (selected):
@@ -254,13 +268,15 @@ Config/                   # xcconfig (secrets gitignored)
 
 ## Phase status / next
 
-Phases 1–7 plus **MVP AlarmKit + cross-platform alarms/Spotify** are implemented:
+Phases 1–9 are in-tree:
 
 - **iOS:** AlarmKit on iOS 26+ (`AlarmSchedulerAlarmKit`), notification fallback otherwise; Spotify OAuth PKCE
 - **Flutter Android:** exact local notifications + Spotify deep-link (`sleepingroutineforzy://spotify-callback`)
 - **Flutter Web:** best-effort browser reminders + Spotify web redirect
+- **Phase 8:** privacy/security hardening (health leak closed, admin TTL, Flutter secure store)
+- **Phase 9:** device test matrix + `scripts/phase9_matrix.py` + CI
 
-**Next:** Phase 9 — full device test matrix (iPhone AlarmKit + notification fallback, Android exact alarms, web best-effort reminders).
+**Next:** Manual device sign-off on the Phase 9 checklist (iPhone / Android / Chrome), or App Store / Play packaging if you choose to ship native stores.
 
 ## Architecture notes
 

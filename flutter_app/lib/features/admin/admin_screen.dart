@@ -41,7 +41,7 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return NightScaffold(
-      title: 'Admin',
+      title: 'Remote check-in',
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -78,7 +78,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   await state.setAdminPin(pinController.text);
                   hasPin = true;
                   unlocked = true;
-                  info = 'Admin PIN saved.';
+                  info = 'PIN saved.';
                   error = null;
                 } catch (e) {
                   error = '$e';
@@ -92,7 +92,7 @@ class _AdminScreenState extends State<AdminScreen> {
               obscureText: true,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Enter Admin PIN'),
+              decoration: const InputDecoration(labelText: 'Enter PIN'),
             ),
             const SizedBox(height: 12),
             PrimaryButton(
@@ -106,7 +106,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
           ] else ...[
             SwitchListTile(
-              title: const Text('Share status with remote Admin'),
+              title: const Text('Share status for remote check-in'),
               value: state.preferences.remoteMonitoringOptIn,
               onChanged: (v) async {
                 try {

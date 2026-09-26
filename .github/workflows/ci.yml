@@ -1,0 +1,47 @@
+name: CI — Phase 9 automated matrix subset
+
+on:
+  push:
+    branches: [main, master, mvp]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend-matrix:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Static + API matrix
+        run: |
+          .venv/bin/python main.py &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8081/health && break
+            sleep 1
+          done
+          cd ..
+          backend/.venv/bin/python scripts/phase9_matrix.py
+
+  flutter-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test

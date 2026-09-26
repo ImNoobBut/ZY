@@ -99,7 +99,7 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => state.requestAlarmPermission(),
           ),
           ListTile(
-            title: const Text('Admin'),
+            title: const Text('Remote check-in'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).pushNamed('/admin'),
           ),
@@ -111,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             title: Text('About'),
             subtitle: Text(
-              'PWA-ready Flutter web + Android. Offline-first sync when the backend is reachable.',
+              'A simple bedtime routine — music, timer, and wake alarm.',
             ),
           ),
         ],

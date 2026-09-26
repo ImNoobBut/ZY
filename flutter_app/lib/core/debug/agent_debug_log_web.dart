@@ -2,6 +2,8 @@ import 'dart:convert';
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 
+import 'package:flutter/foundation.dart';
+
 void agentDebugLogImpl({
   required String hypothesisId,
   required String location,
@@ -9,6 +11,8 @@ void agentDebugLogImpl({
   Map<String, Object?> data = const {},
   String runId = 'pre-fix',
 }) {
+  if (!kDebugMode) return;
+
   final payload = <String, Object?>{
     'sessionId': '470400',
     'runId': runId,

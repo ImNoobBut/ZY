@@ -10,6 +10,8 @@ void agentDebugLogImpl({
   Map<String, Object?> data = const {},
   String runId = 'pre-fix',
 }) {
+  if (!kDebugMode) return;
+
   final payload = <String, Object?>{
     'sessionId': '470400',
     'runId': runId,
@@ -19,10 +21,8 @@ void agentDebugLogImpl({
     'data': data,
     'timestamp': DateTime.now().millisecondsSinceEpoch,
   };
-  if (kDebugMode) {
-    // ignore: avoid_print
-    print('AGENT_DBG ${jsonEncode(payload)}');
-  }
+  // ignore: avoid_print
+  print('AGENT_DBG ${jsonEncode(payload)}');
   try {
     // Workspace-relative when running from repo; ignored on device sandboxes.
     File('debug-470400.log').writeAsStringSync(

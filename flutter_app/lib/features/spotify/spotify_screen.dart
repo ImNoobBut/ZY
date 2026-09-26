@@ -125,15 +125,17 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                 }
               },
             ),
-            const SizedBox(height: 8),
-            SecondaryButton(
-              label: 'Demo connect',
-              onPressed: () async {
-                await state.spotify.connectDemo();
-                await _refresh();
-                setState(() {});
-              },
-            ),
+            if (kDebugMode) ...[
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: 'Demo connect',
+                onPressed: () async {
+                  await state.spotify.connectDemo();
+                  await _refresh();
+                  setState(() {});
+                },
+              ),
+            ],
           ] else ...[
             ZyCard(
               child: Column(

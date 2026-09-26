@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -135,13 +136,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 8),
-              SecondaryButton(
-                label: 'Demo connect (Windows testing)',
-                onPressed: () async {
-                  await state.connectSpotifyDemo();
-                },
-              ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 8),
+                SecondaryButton(
+                  label: 'Demo connect (Windows testing)',
+                  onPressed: () async {
+                    await state.connectSpotifyDemo();
+                  },
+                ),
+              ],
             ],
             if (state.errorMessage != null) ...[
               const SizedBox(height: 12),
