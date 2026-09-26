@@ -8,14 +8,30 @@ class QuietSoundFactory {
   static Uint8List makeWav(QuietSound sound) {
     switch (sound) {
       case QuietSound.softTone:
-        return _tone(frequency: 174, amplitude: 0.04);
+        return _tone(frequency: 174, amplitude: 0.08);
       case QuietSound.deepHum:
-        return _tone(frequency: 110, amplitude: 0.035);
+        return _tone(frequency: 110, amplitude: 0.07);
       case QuietSound.whiteNoise:
-        return _noise(filtered: false, amplitude: 0.025);
+        return _noise(filtered: false, amplitude: 0.05);
       case QuietSound.rain:
-        return _noise(filtered: true, amplitude: 0.03);
+        return _noise(filtered: true, amplitude: 0.06);
     }
+  }
+
+  /// Louder looping beep for wake alarms (web in-tab ring).
+  static Uint8List makeAlarmWav() {
+    const sampleRate = 22050.0;
+    const durationSeconds = 1.0;
+    final frameCount = (durationSeconds * sampleRate).round();
+    final samples = Int16List(frameCount);
+    for (var frame = 0; frame < frameCount; frame++) {
+      final t = frame / sampleRate;
+      // Two pulses per second (on/off) so the loop reads as an alarm chirp.
+      final gate = (t % 0.5) < 0.28 ? 1.0 : 0.0;
+      final sample = (sin(2 * pi * 880 * t) * 0.45 + sin(2 * pi * 1100 * t) * 0.25) * gate;
+      samples[frame] = (sample.clamp(-1.0, 1.0) * 32767).round();
+    }
+    return _wrapPcm(samples, sampleRate);
   }
 
   static Uint8List _tone({

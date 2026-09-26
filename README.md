@@ -190,7 +190,9 @@ The app collects only what is needed for the sleep routine and **opted-in** remo
 - Physical device + real Client ID recommended for end-to-end playback tests.
 - Redirect URIs to register in Spotify Dashboard:
   - iOS / Android: `sleepingroutineforzy://spotify-callback`
-  - Flutter web: `http://127.0.0.1:7357/callback`
+  - Flutter web (local): `http://127.0.0.1:7357/callback`
+  - Flutter web (Pages): `https://700ff232.sleeping-routine-for-zy.pages.dev/callback`
+  - Flutter web (Pages alias): `https://sleeping-routine-for-zy.pages.dev/callback`
 
 ## Device verification checklist (MVP)
 

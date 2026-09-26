@@ -28,4 +28,10 @@ abstract class AlarmScheduler {
   bool get isBestEffortOnly;
 
   String get limitationCopy;
+
+  /// Emits when a wake alarm rings while the app is alive (mainly web).
+  Stream<SleepAlarm> get onAlarmFired => const Stream.empty();
+
+  /// Stops in-tab alarm sound / overlay if ringing.
+  Future<void> dismissRinging() async {}
 }

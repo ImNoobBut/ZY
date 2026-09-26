@@ -1,0 +1,42 @@
+---
+description: All app changes must work on Android, iOS, and web
+alwaysApply: true
+---
+
+# Cross-Platform First (Android / iOS / Web)
+
+This Flutter app ships to **Android, iOS, and web**. Every change must be valid and usable on all three unless the user explicitly scopes to one platform.
+
+## Defaults
+
+- Prefer shared Dart/Flutter APIs (`flutter/`, `package:` libs that support all targets).
+- Do **not** import `dart:io` or `dart:html` from shared UI/feature code.
+- Do **not** assume mobile-only behavior (background alarms, notifications, deep links, file paths, clipboard, sensors) works the same on web—or that web APIs exist on mobile.
+- UI must work for touch **and** pointer, and for phone **and** desktop/web layouts (safe areas, overflow, keyboard, scroll).
+
+## When platforms must differ
+
+Use the existing split pattern—never scatter raw platform branches through features:
+
+1. Shared interface / facade (e.g. `alarm_scheduler.dart`)
+2. Conditional export/factory (`*_factory.dart` or `export '..._stub.dart' if (dart.library.html) '..._web.dart'`)
+3. Implementations: `*_io.dart` (Android/iOS), `*_web.dart`, `*_stub.dart`
+
+```dart
+// ❌ BAD — breaks web compile or leaves a platform unimplemented
+import 'dart:io';
+if (Platform.isAndroid) { /* only Android */ }
+
+// ✅ GOOD — shared call site, platform files behind conditional import
+final scheduler = createAlarmScheduler();
+await scheduler.schedule(alarm);
+```
+
+Use `kIsWeb` / `defaultTargetPlatform` only for small, unavoidable UI or config tweaks—not as a substitute for a proper platform implementation.
+
+## Checklist before finishing
+
+- [ ] Compiles for mobile **and** web (no `dart:io` / `dart:html` in shared paths)
+- [ ] Feature has a real path on Android, iOS, **and** web (or an explicit stub with clear UX)
+- [ ] No silent no-op on one platform unless the product intentionally disables it there
+- [ ] Config/URLs/storage/auth respect platform differences already used in `app_config.dart` and web OAuth helpers

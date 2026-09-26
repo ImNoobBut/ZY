@@ -27,17 +27,30 @@ jobs:
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_REDIRECT_URI: ${{ vars.SPOTIFY_REDIRECT_URI }}
         run: |
+          set -euo pipefail
+          if [ -z "${BACKEND_BASE_URL:-}" ]; then
+            echo "Set repository variable BACKEND_BASE_URL" >&2
+            exit 1
+          fi
           flutter pub get
-          flutter build web --release --pwa-strategy=offline-first \
-            --dart-define=BACKEND_BASE_URL=${BACKEND_BASE_URL:-https://YOUR-RENDER-URL.onrender.com} \
-            --dart-define=SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+          DEFINES=(
+            "--dart-define=BACKEND_BASE_URL=${BACKEND_BASE_URL}"
+          )
+          if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
+            DEFINES+=("--dart-define=SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}")
+          fi
+          if [ -n "${SPOTIFY_REDIRECT_URI:-}" ]; then
+            DEFINES+=("--dart-define=SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI}")
+          fi
+          flutter build web --release --pwa-strategy=offline-first "${DEFINES[@]}"
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: sleeping-routine-for-zy
+          projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
           directory: flutter_app/build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

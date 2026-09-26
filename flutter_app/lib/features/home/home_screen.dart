@@ -30,8 +30,17 @@ class HomeScreen extends StatelessWidget {
         state.preferences.bedtimeReminderEnabled ? 'Reminder on' : 'Reminder off';
     final streak = state.currentStreak;
     final currentMinutes = state.preferences.defaultSleepTimerSeconds ~/ 60;
-    final usingSpotify = state.spotify.isAuthenticated &&
+    final preferSpotify = state.spotify.isAuthenticated &&
         state.preferences.selectedSpotifyUri != null;
+    final activeSource = state.activeRoutine?.musicSource;
+    final musicIsSpotify = active
+        ? activeSource == MusicSource.spotify
+        : preferSpotify;
+    final musicLabel = active
+        ? state.musicLabel
+        : (preferSpotify
+            ? (state.preferences.selectedSpotifyTitle ?? 'Spotify')
+            : state.preferences.selectedQuietSound.displayName);
 
     return NightScaffold(
       child: ListView(
@@ -56,18 +65,13 @@ class HomeScreen extends StatelessWidget {
               children: [
                 InkWell(
                   onTap: () {
-                    if (usingSpotify) {
+                    if (musicIsSpotify) {
                       Navigator.of(context).pushNamed('/spotify');
                     } else {
                       Navigator.of(context).pushNamed('/quiet-sound');
                     }
                   },
-                  child: _row(
-                    'Music',
-                    usingSpotify
-                        ? (state.preferences.selectedSpotifyTitle ?? 'Spotify')
-                        : state.preferences.selectedQuietSound.displayName,
-                  ),
+                  child: _row('Music', musicLabel),
                 ),
                 _row(
                   active ? 'Music stops in' : 'Sleep timer',
@@ -130,7 +134,7 @@ class HomeScreen extends StatelessWidget {
               }
             },
           ),
-          if (!usingSpotify) ...[
+          if (!preferSpotify) ...[
             const SizedBox(height: 8),
             SecondaryButton(
               label: 'Choose Spotify music',

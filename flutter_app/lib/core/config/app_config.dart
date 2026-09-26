@@ -12,14 +12,18 @@ class AppConfig {
   final String spotifyRedirectUri;
   final String backendBaseUrl;
 
-  /// Defaults match local demos. Override with --dart-define.
+  /// Load from `--dart-define` / CI env. No client IDs or prod URLs are baked in.
   ///
   /// Spotify Dashboard must list [spotifyRedirectUri] exactly
   /// (plus the iOS scheme `sleepingroutineforzy://spotify-callback`).
+  ///
+  /// On web, redirect is always `{current page origin}/callback` when the
+  /// app is not on loopback. That prevents a stale local dart-define from
+  /// breaking Cloudflare Pages OAuth.
   static AppConfig fromEnvironment() {
     const clientId = String.fromEnvironment(
       'SPOTIFY_CLIENT_ID',
-      defaultValue: '8d55ca65ca71439597adb80e67ba2ab3',
+      defaultValue: '',
     );
     const redirectDefine = String.fromEnvironment(
       'SPOTIFY_REDIRECT_URI',
@@ -29,16 +33,31 @@ class AppConfig {
       'BACKEND_BASE_URL',
       defaultValue: 'http://localhost:8081',
     );
-    final redirect = redirectDefine.isNotEmpty
-        ? redirectDefine
-        : (kIsWeb
-            ? 'http://127.0.0.1:7357/callback'
-            : 'sleepingroutineforzy://spotify-callback');
     return AppConfig(
       spotifyClientId: clientId,
-      spotifyRedirectUri: redirect,
+      spotifyRedirectUri: _resolveSpotifyRedirect(redirectDefine),
       backendBaseUrl: backend,
     );
+  }
+
+  static String _resolveSpotifyRedirect(String redirectDefine) {
+    if (!kIsWeb) {
+      return redirectDefine.isNotEmpty
+          ? redirectDefine
+          : 'sleepingroutineforzy://spotify-callback';
+    }
+
+    final origin = Uri.base.origin;
+    final host = Uri.base.host.toLowerCase();
+    final onLoopback = host == 'localhost' || host == '127.0.0.1';
+
+    // Production / Pages / any remote host: always match the live origin.
+    if (!onLoopback && origin.isNotEmpty && origin != 'null') {
+      return '$origin/callback';
+    }
+
+    if (redirectDefine.isNotEmpty) return redirectDefine;
+    return '$origin/callback';
   }
 
   bool get hasSpotifyClientId => spotifyClientId.trim().isNotEmpty;

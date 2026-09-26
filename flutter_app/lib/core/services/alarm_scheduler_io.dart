@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../debug/agent_debug_log.dart';
 import '../models/models.dart';
 import 'alarm_scheduler.dart';
 
@@ -100,8 +101,17 @@ class MobileAlarmScheduler implements AlarmScheduler {
     await cancel(alarm.id);
     if (!alarm.isEnabled) return;
 
-    if (!await hasPermission()) {
+    final hasPerm = await hasPermission();
+    if (!hasPerm) {
       final granted = await requestPermission();
+      // #region agent log
+      agentDebugLog(
+        hypothesisId: 'F',
+        location: 'alarm_scheduler_io.dart:schedule',
+        message: 'permission gate',
+        data: {'hadPerm': hasPerm, 'granted': granted, 'alarmId': alarm.id},
+      );
+      // #endregion
       if (!granted) {
         throw Exception('Notification permission is required to schedule alarms.');
       }
@@ -125,7 +135,22 @@ class MobileAlarmScheduler implements AlarmScheduler {
     final details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     if (alarm.repeatDays.isEmpty) {
-      final when = _toTz(alarm.nextFireAfter()!);
+      final next = alarm.nextFireAfter();
+      final when = _toTz(next!);
+      // #region agent log
+      agentDebugLog(
+        hypothesisId: 'F',
+        location: 'alarm_scheduler_io.dart:schedule',
+        message: 'zonedSchedule once',
+        data: {
+          'alarmId': alarm.id,
+          'nextLocal': next.toIso8601String(),
+          'whenTz': when.toIso8601String(),
+          'tz': tz.local.name,
+          'notifId': _notifId(alarm.id),
+        },
+      );
+      // #endregion
       await _plugin.zonedSchedule(
         _notifId(alarm.id),
         alarm.label,
@@ -142,6 +167,19 @@ class MobileAlarmScheduler implements AlarmScheduler {
     for (final weekday in alarm.repeatDays) {
       // Dart DateTime.weekday: Mon=1 … Sun=7 (matches SleepAlarm.repeatDays).
       final when = _nextInstanceOfWeekday(alarm.hour, alarm.minute, weekday);
+      // #region agent log
+      agentDebugLog(
+        hypothesisId: 'F',
+        location: 'alarm_scheduler_io.dart:schedule',
+        message: 'zonedSchedule weekday',
+        data: {
+          'alarmId': alarm.id,
+          'weekday': weekday,
+          'whenTz': when.toIso8601String(),
+          'notifId': _notifId(alarm.id, weekday),
+        },
+      );
+      // #endregion
       await _plugin.zonedSchedule(
         _notifId(alarm.id, weekday),
         alarm.label,

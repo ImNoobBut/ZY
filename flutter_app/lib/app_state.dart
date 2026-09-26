@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'core/config/app_config.dart';
+import 'core/debug/agent_debug_log.dart';
 import 'core/models/models.dart';
 import 'core/services/admin_service.dart';
 import 'core/services/alarm_scheduler.dart';
@@ -264,12 +265,37 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     preferences.touch();
     await store.savePreferences(preferences);
     unawaited(sync.enqueuePreferences(preferences));
-    _refreshMusicLabel();
+    final localRoutineActive = routineState == RoutineState.timerRunning &&
+        activeRoutine?.musicSource == MusicSource.local;
+    if (localRoutineActive) {
+      final ok = await audio.play(sound);
+      if (!ok) {
+        errorMessage = audio.lastError ?? 'Could not play quiet sound.';
+      } else {
+        errorMessage = null;
+        musicLabel = sound.displayName;
+      }
+    } else {
+      _refreshMusicLabel();
+    }
     notifyListeners();
   }
 
   Future<void> previewQuietSound(QuietSound sound) async {
-    await audio.preview(sound);
+    final localRoutineActive = routineState == RoutineState.timerRunning &&
+        activeRoutine?.musicSource == MusicSource.local;
+    // During a local routine, switch the looping tone instead of a timed preview.
+    final ok = localRoutineActive
+        ? await audio.play(sound)
+        : await audio.preview(sound);
+    if (!ok) {
+      errorMessage = audio.lastError ?? 'Could not preview quiet sound.';
+    } else {
+      errorMessage = null;
+      if (localRoutineActive) {
+        musicLabel = sound.displayName;
+      }
+    }
     notifyListeners();
   }
 
@@ -299,18 +325,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           routineState = RoutineState.playing;
           playingSpotify = true;
         } catch (e) {
-          await audio.play(preferences.selectedQuietSound);
+          final ok = await audio.play(preferences.selectedQuietSound);
           musicLabel =
               '${preferences.selectedQuietSound.displayName} (Spotify device offline)';
           routineState = RoutineState.playing;
           infoMessage =
               'Spotify had no active device, so quiet in-app audio started instead. '
               'Open Spotify, play a track once, then retry for Spotify playback.\n$e';
+          if (!ok) {
+            errorMessage = audio.lastError ?? 'Could not start quiet sound.';
+          }
         }
       } else {
-        await audio.play(preferences.selectedQuietSound);
+        final ok = await audio.play(preferences.selectedQuietSound);
         musicLabel = preferences.selectedQuietSound.displayName;
         routineState = RoutineState.playing;
+        if (!ok) {
+          errorMessage = audio.lastError ?? 'Could not start quiet sound.';
+        }
       }
 
       final now = DateTime.now();
@@ -402,11 +434,25 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     routineState = RoutineState.timerRunning;
     final left = remaining();
-    if (routine.musicSource == MusicSource.local &&
-        left != null &&
-        left.inSeconds <= kFadeOutSeconds) {
-      fadeStarted = true;
+    if (routine.musicSource == MusicSource.local) {
+      unawaited(_resumeLocalAudioAfterReconcile(left));
     }
+  }
+
+  Future<void> _resumeLocalAudioAfterReconcile(Duration? left) async {
+    final ok = await audio.play(preferences.selectedQuietSound);
+    if (!ok) {
+      errorMessage = audio.lastError ??
+          'Quiet sound did not resume after reload. Tap Start again or Preview a tone.';
+      notifyListeners();
+      return;
+    }
+    musicLabel = preferences.selectedQuietSound.displayName;
+    if (left != null && left.inSeconds <= kFadeOutSeconds && audio.isPlaying) {
+      fadeStarted = true;
+      unawaited(audio.fadeOut(duration: left));
+    }
+    notifyListeners();
   }
 
   Duration? remaining() {
@@ -453,8 +499,37 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               'Alarms updated. Next: ${DateFormat('EEE HH:mm').format(nextFire.first)}'
               '${alarmScheduler.isBestEffortOnly ? ' (keep this tab open on web)' : ''}';
         }
+        // #region agent log
+        agentDebugLog(
+          hypothesisId: 'E',
+          location: 'app_state.dart:saveAlarms',
+          message: 'alarms saved and reconciled',
+          data: {
+            'enabledCount': enabled.length,
+            'permission': alarmsPermissionGranted,
+            'bestEffort': alarmScheduler.isBestEffortOnly,
+            'nextFire': nextFire.isEmpty ? null : nextFire.first.toIso8601String(),
+            'alarms': enabled
+                .map((a) => {
+                      'id': a.id,
+                      'hm': '${a.hour}:${a.minute}',
+                      'days': a.repeatDays.toList(),
+                      'next': a.nextFireAfter()?.toIso8601String(),
+                    })
+                .toList(),
+          },
+        );
+        // #endregion
       }
     } catch (e) {
+      // #region agent log
+      agentDebugLog(
+        hypothesisId: 'A',
+        location: 'app_state.dart:saveAlarms',
+        message: 'reconcile failed',
+        data: {'error': '$e'},
+      );
+      // #endregion
       errorMessage = 'Could not schedule alarms: $e';
       alarmsPermissionGranted = await alarmScheduler.hasPermission();
     }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -101,10 +102,13 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
         children: [
           ZyCard(
             child: Text(
-              'Use http://127.0.0.1:7357 (not localhost). After login you return to /callback; '
-              'the app exchanges the code and then clears it from the address bar.\n\n'
-              'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.\n\n'
-              'Console noise from MetaMask / Notta / Sentry is from browser extensions, not this app.',
+              kIsWeb
+                  ? 'Redirect URI for this site: ${state.config.spotifyRedirectUri}\n'
+                      'Add that exact URL in the Spotify Developer Dashboard → Redirect URIs.\n\n'
+                      'After login you return to /callback; the app exchanges the code and clears it from the address bar.\n\n'
+                      'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.'
+                  : 'Android uses sleepingroutineforzy://spotify-callback — register that in Spotify Dashboard.\n\n'
+                      'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.',
               style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
             ),
           ),

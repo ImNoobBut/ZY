@@ -34,7 +34,7 @@ class SpotifyService {
 
   Future<Uri> buildAuthorizeUri() async {
     if (!config.hasSpotifyClientId) {
-      throw Exception('Add SPOTIFY_CLIENT_ID via --dart-define or app_config.dart');
+      throw Exception('Add SPOTIFY_CLIENT_ID via --dart-define');
     }
     _pendingVerifier = _makeVerifier();
     _pendingState = _uuidLike();
