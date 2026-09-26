@@ -18,6 +18,7 @@ import 'quiet_sound_factory.dart';
 class WebAlarmScheduler implements AlarmScheduler {
   final Map<String, Timer> _timers = {};
   final Map<String, SleepAlarm> _armed = {};
+  final Set<String> _catchUpFired = {};
   bool _permissionGranted = false;
   bool _audioUnlocked = false;
   html.AudioElement? _ringPlayer;
@@ -34,20 +35,57 @@ class WebAlarmScheduler implements AlarmScheduler {
   bool get isBestEffortOnly => true;
 
   @override
-  String get limitationCopy =>
-      'On phone browsers, keep this tab open (and preferably the screen on) so reminders can ring. '
-      'Notifications help if the tab is in the background briefly. '
-      'For a reliable wake alarm that works with the phone locked, install the Android or iPhone app.';
+  String get limitationCopy {
+    final kind = _phoneBrowserKind;
+    if (kind == _PhoneBrowserKind.ios) {
+      return 'On iPhone Safari, keep this tab open (screen on) so reminders can ring. '
+          'Safari site notifications are limited — Add to Home Screen helps a bit. '
+          'For a reliable wake alarm with the phone locked, use the iPhone app.';
+    }
+    if (kind == _PhoneBrowserKind.android) {
+      return 'On Android Chrome, keep this tab open (screen on) so reminders can ring. '
+          'Notifications help briefly in the background. '
+          'For a reliable wake alarm with the phone locked, use the Android app.';
+    }
+    return 'On web, keep this tab open so reminders can ring. '
+        'For a reliable wake alarm with the phone locked, use the Android or iPhone app.';
+  }
 
   @override
   bool get permissionNeedsSystemSettings =>
       html.Notification.supported && html.Notification.permission == 'denied';
 
   @override
-  String get permissionSettingsHint =>
-      'Notifications are blocked for this site. In Chrome: tap the lock (or tune) icon by the URL → '
-      'Permissions → Notifications → Allow, then tap Allow alarms again.';
+  String get permissionSettingsHint {
+    switch (_phoneBrowserKind) {
+      case _PhoneBrowserKind.ios:
+        return 'Safari blocked or limits notifications for this site. '
+            'In-tab ringing still works while this tab stays open. '
+            'Optional: Share → Add to Home Screen, then allow notifications for the icon. '
+            'For lock-screen wake alarms, use the iPhone app.';
+      case _PhoneBrowserKind.android:
+        return 'Chrome blocked notifications for this site. '
+            'In-tab ringing still works while this tab stays open. '
+            'Optional: tap the lock icon by the URL → Permissions → Notifications → Allow, '
+            'then Recheck on the Alarms tab.';
+      case _PhoneBrowserKind.other:
+        return 'Notifications are blocked for this site. '
+            'In-tab ringing still works while this tab stays open. '
+            'Optional: allow notifications in browser site settings, then Recheck on Alarms.';
+    }
+  }
 
+  _PhoneBrowserKind get _phoneBrowserKind {
+    final ua = html.window.navigator.userAgent.toLowerCase();
+    if (ua.contains('iphone') ||
+        ua.contains('ipad') ||
+        ua.contains('ipod') ||
+        (ua.contains('mac') && ua.contains('mobile'))) {
+      return _PhoneBrowserKind.ios;
+    }
+    if (ua.contains('android')) return _PhoneBrowserKind.android;
+    return _PhoneBrowserKind.other;
+  }
   @override
   Future<void> initialize() async {
     _syncPermissionFromBrowser();
@@ -71,8 +109,9 @@ class WebAlarmScheduler implements AlarmScheduler {
         'supported': html.Notification.supported,
         'secureContext': html.window.isSecureContext,
         'visibility': html.document.visibilityState,
+        'phoneBrowser': _phoneBrowserKind.name,
       },
-      runId: 'phone-fix',
+      runId: 'post-fix',
     );
     // Debug-only: arm fire path in N seconds from the console / CDP.
     js.context['__agentArmAlarmInSeconds'] = (num seconds) {
@@ -263,28 +302,60 @@ class WebAlarmScheduler implements AlarmScheduler {
 
   Future<void> _onBecameVisible() async {
     _syncPermissionFromBrowser();
+    final visibility = html.document.visibilityState;
     // Re-arm after mobile Chrome freezes background timers.
+    // Also catch up if we missed a fire while the tab was frozen/backgrounded.
     for (final alarm in _armed.values.toList()) {
-      if (alarm.isEnabled) {
+      if (!alarm.isEnabled) continue;
+      final missed = _missedSlotWithinGrace(alarm);
+      // #region agent log
+      agentDebugLog(
+        hypothesisId: 'H1',
+        location: 'alarm_scheduler_web.dart:_onBecameVisible',
+        message: 'visibility resume check',
+        data: {
+          'alarmId': alarm.id,
+          'hm': '${alarm.hour}:${alarm.minute}',
+          'visibility': visibility,
+          'permission': html.Notification.supported
+              ? html.Notification.permission
+              : 'unsupported',
+          'missedSlot': missed?.toIso8601String(),
+          'next': alarm.nextFireAfter()?.toIso8601String(),
+          'hadTimer': _timers.containsKey(alarm.id),
+        },
+        runId: 'miss-probe',
+      );
+      // #endregion
+      if (missed != null) {
+        _onFire(alarm, rearm: true);
+      } else {
         _arm(alarm);
       }
     }
     await _updateWakeLock();
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'E',
-      location: 'alarm_scheduler_web.dart:_onBecameVisible',
-      message: 're-armed after visibility',
-      data: {
-        'armed': _armed.length,
-        'timers': _timers.length,
-        'permission': html.Notification.supported
-            ? html.Notification.permission
-            : 'unsupported',
-      },
-      runId: 'phone-fix',
-    );
-    // #endregion
+  }
+
+  /// If the alarm's intended slot was within [grace] in the past, return that slot.
+  /// Mobile Chrome often kills timers in background — without catch-up the UI jumps
+  /// to "Next: tomorrow" and the user hears nothing.
+  DateTime? _missedSlotWithinGrace(
+    SleepAlarm alarm, {
+    Duration grace = const Duration(minutes: 30),
+  }) {
+    final now = DateTime.now();
+    var slot = DateTime(now.year, now.month, now.day, alarm.hour, alarm.minute);
+    if (alarm.repeatDays.isNotEmpty && !alarm.repeatDays.contains(slot.weekday)) {
+      return null;
+    }
+    final ago = now.difference(slot);
+    if (!ago.isNegative && ago <= grace) {
+      final key = '${alarm.id}|${slot.toIso8601String()}';
+      if (_catchUpFired.contains(key)) return null;
+      _catchUpFired.add(key);
+      return slot;
+    }
+    return null;
   }
 
   Future<void> _updateWakeLock() async {
@@ -383,7 +454,7 @@ class WebAlarmScheduler implements AlarmScheduler {
 
       // #region agent log
       agentDebugLog(
-        hypothesisId: 'C',
+        hypothesisId: 'H2',
         location: 'alarm_scheduler_web.dart:Timer.fire',
         message: 'alarm timer fired',
         data: {
@@ -400,8 +471,9 @@ class WebAlarmScheduler implements AlarmScheduler {
           'overlayShown': overlayShown,
           'audioUnlocked': _audioUnlocked,
           'hasSoundPath': true,
+          'silentHint': 'phone may be in silent/vibrate — overlay should still show',
         },
-        runId: 'phone-fix',
+        runId: 'miss-probe',
       );
       // #endregion
     }();
@@ -510,7 +582,31 @@ class WebAlarmScheduler implements AlarmScheduler {
     }
     for (final alarm in alarms) {
       if (alarm.isEnabled) {
-        await schedule(alarm);
+        final missed = _missedSlotWithinGrace(alarm);
+        // #region agent log
+        agentDebugLog(
+          hypothesisId: 'H1',
+          location: 'alarm_scheduler_web.dart:reconcile',
+          message: 'reconcile enabled alarm',
+          data: {
+            'alarmId': alarm.id,
+            'hm': '${alarm.hour}:${alarm.minute}',
+            'next': alarm.nextFireAfter()?.toIso8601String(),
+            'missedSlot': missed?.toIso8601String(),
+            'permission': html.Notification.supported
+                ? html.Notification.permission
+                : 'unsupported',
+            'visibility': html.document.visibilityState,
+          },
+          runId: 'miss-probe',
+        );
+        // #endregion
+        if (missed != null) {
+          _armed[alarm.id] = alarm;
+          _onFire(alarm, rearm: true);
+        } else {
+          await schedule(alarm);
+        }
       } else {
         await cancel(alarm.id);
       }
@@ -560,5 +656,7 @@ class WebAlarmScheduler implements AlarmScheduler {
     _bedtimeTimer = null;
   }
 }
+
+enum _PhoneBrowserKind { android, ios, other }
 
 AlarmScheduler createAlarmScheduler() => WebAlarmScheduler();

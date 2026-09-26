@@ -2,8 +2,6 @@ import 'dart:convert';
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 
-import 'package:flutter/foundation.dart';
-
 void agentDebugLogImpl({
   required String hypothesisId,
   required String location,
@@ -11,10 +9,10 @@ void agentDebugLogImpl({
   Map<String, Object?> data = const {},
   String runId = 'pre-fix',
 }) {
-  if (!kDebugMode) return;
-
+  // Debug-session logging: keep active even in profile/release web so phone/desktop
+  // Pages builds can POST to the local ingest when opened on this machine.
   final payload = <String, Object?>{
-    'sessionId': '470400',
+    'sessionId': 'f31c5a',
     'runId': runId,
     'hypothesisId': hypothesisId,
     'location': location,
@@ -26,15 +24,14 @@ void agentDebugLogImpl({
   // ignore: avoid_print
   print('AGENT_DBG $encoded');
 
-  // Persist in-page so CDP can recover logs if ingest is blocked.
   try {
-    final existing = html.window.localStorage['agent_dbg_470400'] ?? '[]';
+    final existing = html.window.localStorage['agent_dbg_f31c5a'] ?? '[]';
     final list = (jsonDecode(existing) as List).toList();
     list.add(payload);
     if (list.length > 80) {
       list.removeRange(0, list.length - 80);
     }
-    html.window.localStorage['agent_dbg_470400'] = jsonEncode(list);
+    html.window.localStorage['agent_dbg_f31c5a'] = jsonEncode(list);
   } catch (_) {}
 
   try {
@@ -43,7 +40,7 @@ void agentDebugLogImpl({
       method: 'POST',
       requestHeaders: {
         'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '470400',
+        'X-Debug-Session-Id': 'f31c5a',
       },
       sendData: encoded,
     );

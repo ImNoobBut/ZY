@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-
 void agentDebugLogImpl({
   required String hypothesisId,
   required String location,
@@ -10,10 +8,8 @@ void agentDebugLogImpl({
   Map<String, Object?> data = const {},
   String runId = 'pre-fix',
 }) {
-  if (!kDebugMode) return;
-
   final payload = <String, Object?>{
-    'sessionId': '470400',
+    'sessionId': 'f31c5a',
     'runId': runId,
     'hypothesisId': hypothesisId,
     'location': location,
@@ -24,8 +20,7 @@ void agentDebugLogImpl({
   // ignore: avoid_print
   print('AGENT_DBG ${jsonEncode(payload)}');
   try {
-    // Workspace-relative when running from repo; ignored on device sandboxes.
-    File('debug-470400.log').writeAsStringSync(
+    File('debug-f31c5a.log').writeAsStringSync(
       '${jsonEncode(payload)}\n',
       mode: FileMode.append,
       flush: true,

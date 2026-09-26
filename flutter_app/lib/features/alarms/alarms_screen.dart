@@ -48,8 +48,9 @@ class AlarmsScreen extends StatelessWidget {
                     state.alarmScheduler.permissionNeedsSystemSettings
                         ? state.alarmScheduler.permissionSettingsHint
                         : (state.alarmScheduler.isBestEffortOnly
-                            ? 'Optional: allow notifications for background banners. '
-                                'In-tab sound still works while this tab stays open — tap Allow alarms.'
+                            ? 'Optional on phone browsers: allow notifications for banners. '
+                                'In-tab sound still works while this tab stays open on Android Chrome and iPhone Safari. '
+                                'Tap Allow alarms to try.'
                             : 'Enable notifications (and exact alarms on Android) so wake alarms can ring.'),
                     style: const TextStyle(color: AppTheme.secondaryText),
                   ),

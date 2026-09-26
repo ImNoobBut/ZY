@@ -110,6 +110,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       errorMessage ??= 'Could not schedule alarms: $e';
     }
 
+    // #region agent log
+    agentDebugLog(
+      hypothesisId: 'E',
+      location: 'app_state.dart:bootstrap',
+      message: 'bootstrap alarm state',
+      data: {
+        'granted': alarmsPermissionGranted,
+        'bestEffort': alarmScheduler.isBestEffortOnly,
+        'needsSettings': alarmScheduler.permissionNeedsSystemSettings,
+        'errorSet': errorMessage != null,
+        'errorIsNotifHint': errorMessage?.contains('Notifications are blocked') == true,
+        'enabledAlarms': alarms.where((a) => a.isEnabled).length,
+      },
+    );
+    // #endregion
+
     _reconcileRoutine();
     _refreshMusicLabel();
     ready = true;
@@ -318,18 +334,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       infoMessage = 'Alarm permission granted.';
       errorMessage = null;
     } else if (alarmScheduler.isBestEffortOnly) {
+      // Phone web (Android Chrome / iOS Safari): notifications are optional.
+      // Never put browser-settings copy into errorMessage — Home shows it in red.
       infoMessage = alarmScheduler.permissionNeedsSystemSettings
-          ? null
-          : 'In-tab alarms still work while this tab stays open.';
+          ? 'Notifications blocked in the browser. In-tab alarms still work while this tab stays open — see Alarms for how to re-enable.'
+          : 'In-tab alarms still work while this tab stays open. Notifications are optional on web.';
+      errorMessage = null;
+    } else {
+      // Native Android / iOS: permission is required for real wake alarms.
       errorMessage = alarmScheduler.permissionNeedsSystemSettings
           ? alarmScheduler.permissionSettingsHint
-          : 'Browser notifications are off. In-tab ringing still works if you keep this tab open.';
-    } else {
-      errorMessage =
-          alarmScheduler.permissionNeedsSystemSettings
-              ? alarmScheduler.permissionSettingsHint
-              : 'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
+          : 'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
+      infoMessage = null;
     }
+    // #region agent log
+    agentDebugLog(
+      hypothesisId: 'A',
+      location: 'app_state.dart:requestAlarmPermission',
+      message: 'permission result wrote messages',
+      data: {
+        'granted': alarmsPermissionGranted,
+        'bestEffort': alarmScheduler.isBestEffortOnly,
+        'needsSettings': alarmScheduler.permissionNeedsSystemSettings,
+        'errorSet': errorMessage != null,
+        'errorPreview': errorMessage == null
+            ? null
+            : (errorMessage!.length > 80
+                ? '${errorMessage!.substring(0, 80)}…'
+                : errorMessage),
+        'infoPreview': infoMessage == null
+            ? null
+            : (infoMessage!.length > 80
+                ? '${infoMessage!.substring(0, 80)}…'
+                : infoMessage),
+        'enabledAlarms': alarms.where((a) => a.isEnabled).length,
+      },
+      runId: 'post-fix',
+    );
+    // #endregion
     notifyListeners();
   }
 
