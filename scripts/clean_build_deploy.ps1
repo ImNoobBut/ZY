@@ -1,7 +1,8 @@
 # Clean → build Flutter web → deploy to Cloudflare Pages.
 #
 # Requires BACKEND_BASE_URL (param or env). Optional:
-#   SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, CLOUDFLARE_PAGES_PROJECT, CF_PAGES_BRANCH
+#   SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, CLOUDFLARE_PAGES_PROJECT, CF_PAGES_BRANCH,
+#   FLUTTER_SDK / FLUTTER_ROOT
 #
 # Usage:
 #   $env:BACKEND_BASE_URL = "https://your-api.example.com"
@@ -11,6 +12,9 @@
 #   .\scripts\clean_build_deploy.ps1 -BackendBaseUrl "https://..." -SpotifyClientId "..."
 #   .\scripts\clean_build_deploy.ps1 -Branch production -SkipClean
 #   .\scripts\clean_build_deploy.ps1 -SkipDeploy
+#
+# On hosted Pages, Spotify redirect is {origin}/callback (see AppConfig).
+# SPOTIFY_REDIRECT_URI is only needed for local loopback overrides.
 
 param(
     [string]$BackendBaseUrl = $env:BACKEND_BASE_URL,

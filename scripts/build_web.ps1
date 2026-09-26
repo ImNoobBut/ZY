@@ -1,9 +1,13 @@
-# Build Flutter web for Cloudflare Pages (offline-first PWA).
+# Build Flutter web for Cloudflare Pages.
 # Usage:
 #   .\scripts\build_web.ps1 -BackendBaseUrl "https://your-api.example.com"
 # Optional:
 #   .\scripts\build_web.ps1 -BackendBaseUrl "https://..." -SpotifyClientId "..." -Deploy
-# Env fallbacks: BACKEND_BASE_URL, SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, CLOUDFLARE_PAGES_PROJECT
+# Env fallbacks: BACKEND_BASE_URL, SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI,
+#                CLOUDFLARE_PAGES_PROJECT, FLUTTER_SDK / FLUTTER_ROOT
+#
+# On hosted Pages, Spotify redirect is {origin}/callback (see AppConfig).
+# SPOTIFY_REDIRECT_URI is only needed for local loopback overrides.
 
 param(
     [string]$BackendBaseUrl = $env:BACKEND_BASE_URL,
@@ -29,6 +33,15 @@ if (-not $BackendBaseUrl) {
 $root = Split-Path -Parent $PSScriptRoot
 $app = Join-Path $root "flutter_app"
 
+# Prefer FLUTTER_ROOT / PATH; optional local override via FLUTTER_SDK.
+$flutterSdk = $env:FLUTTER_SDK
+if (-not $flutterSdk -and $env:FLUTTER_ROOT) {
+    $flutterSdk = $env:FLUTTER_ROOT
+}
+if ($flutterSdk -and (Test-Path (Join-Path $flutterSdk "bin\flutter.bat"))) {
+    $env:Path = (Join-Path $flutterSdk "bin") + ";" + $env:Path
+}
+
 Push-Location $app
 try {
     flutter pub get
@@ -41,9 +54,10 @@ try {
     if ($SpotifyRedirectUri) {
         $defines += "--dart-define=SPOTIFY_REDIRECT_URI=$SpotifyRedirectUri"
     }
-    flutter build web --release --pwa-strategy=offline-first @defines
+    # Prefer classic JS build; --pwa-strategy is deprecated on newer Flutter.
+    flutter build web --release --no-wasm-dry-run @defines
     Write-Host "Built: $app\build\web"
-    Write-Host "Spotify: register Redirect URI https://YOUR-PAGES-HOST/callback (or pass -SpotifyRedirectUri)"
+    Write-Host "Spotify redirect on Pages uses {origin}/callback automatically."
     if ($Deploy) {
         npx --yes wrangler pages deploy build/web --project-name=$ProjectName
     }
