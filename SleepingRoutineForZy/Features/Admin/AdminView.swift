@@ -315,7 +315,7 @@ struct PrivacyView: View {
                         title: String(localized: "privacy.collect.title", defaultValue: "What we collect"),
                         body: String(
                             localized: "privacy.collect.body",
-                            defaultValue: "Sleep routine and alarm settings, Spotify connection state, app-generated sleep session history, and device status fields you explicitly enable for remote Admin (battery, charging, routine active, timer, alarm, Spotify connected)."
+                            defaultValue: "Account email and display name when you sign up (password is sent only to create a server-side hash — never stored in the app). Sleep routine and alarm settings, Spotify connection state (tokens stay in the Keychain), app-generated sleep session history, and device status fields you explicitly enable for remote Admin."
                         )
                     )
 
@@ -323,7 +323,7 @@ struct PrivacyView: View {
                         title: String(localized: "privacy.not_collect.title", defaultValue: "What we never collect"),
                         body: String(
                             localized: "privacy.not_collect.body",
-                            defaultValue: "Messages, passwords, browsing history, keystrokes, other apps’ private content, microphone, camera, location, or screen contents."
+                            defaultValue: "Messages, browsing history, keystrokes, other apps’ private content, microphone, camera, location, or screen contents. We never store your account password in plaintext."
                         )
                     )
 

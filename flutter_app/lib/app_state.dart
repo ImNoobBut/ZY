@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:app_links/app_links.dart';
 import 'package:crypto/crypto.dart';
@@ -13,6 +14,7 @@ import 'core/debug/agent_debug_log.dart';
 import 'core/models/models.dart';
 import 'core/services/admin_service.dart';
 import 'core/services/alarm_scheduler.dart';
+import 'core/services/auth_service.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
 import 'core/services/streak_calculator.dart';
@@ -26,6 +28,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required this.store,
     required this.spotify,
     required this.admin,
+    required this.auth,
     required this.audio,
     required this.alarmScheduler,
     required this.sync,
@@ -35,6 +38,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final LocalStore store;
   final SpotifyService spotify;
   final AdminService admin;
+  final AuthService auth;
   final QuietAudioService audio;
   final AlarmScheduler alarmScheduler;
   final SyncService sync;
@@ -61,6 +65,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         bedtimeMinute: preferences.preferredBedtimeMinute,
       );
 
+  bool get isLoggedIn => auth.isLoggedIn;
+
   Future<void> bootstrap() async {
     WidgetsBinding.instance.addObserver(this);
     preferences = await store.loadPreferences();
@@ -69,6 +75,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     activeRoutine = await store.loadActiveRoutine();
     await spotify.restore();
     await admin.restore();
+    await auth.restore();
     await alarmScheduler.initialize();
     alarmsPermissionGranted = await alarmScheduler.hasPermission();
 
@@ -101,8 +108,108 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (preferences.remoteMonitoringOptIn) {
       unawaited(checkInIfNeeded());
     }
-    unawaited(sync.syncNow());
+    if (isLoggedIn) {
+      unawaited(sync.syncNow());
+    }
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  void clearMessages() {
+    errorMessage = null;
+    infoMessage = null;
+    notifyListeners();
+  }
+
+  Future<void> registerAccount({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    busy = true;
+    errorMessage = null;
+    infoMessage = null;
+    notifyListeners();
+    try {
+      final profile = await auth.register(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+      preferences.displayName = profile.displayName;
+      preferences.touch();
+      await store.savePreferences(preferences);
+      await sync.seedLocalSnapshot();
+      unawaited(sync.syncNow(forcePullAll: true));
+      infoMessage = 'Account created.';
+    } catch (e) {
+      errorMessage = '$e';
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loginAccount({
+    required String email,
+    required String password,
+  }) async {
+    busy = true;
+    errorMessage = null;
+    infoMessage = null;
+    notifyListeners();
+    try {
+      final profile = await auth.login(email: email, password: password);
+      if (profile.displayName.isNotEmpty) {
+        preferences.displayName = profile.displayName;
+        preferences.touch();
+        await store.savePreferences(preferences);
+      }
+      await store.saveSyncCursor(null);
+      unawaited(sync.syncNow(forcePullAll: true));
+      infoMessage = 'Signed in.';
+    } catch (e) {
+      errorMessage = '$e';
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    busy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final profile = await auth.updateDisplayName(displayName);
+      preferences.displayName = profile.displayName;
+      preferences.touch();
+      await store.savePreferences(preferences);
+      unawaited(sync.enqueuePreferences(preferences));
+      infoMessage = 'Name updated.';
+    } catch (e) {
+      errorMessage = '$e';
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> signOut() async {
+    busy = true;
+    notifyListeners();
+    try {
+      await auth.signOut();
+      infoMessage = 'Signed out.';
+      errorMessage = null;
+    } catch (e) {
+      errorMessage = '$e';
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   void _onSyncChanged() => notifyListeners();
@@ -579,7 +686,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       if (!admin.isRegistered) {
-        await admin.register(displayName: 'Zy Flutter');
+        throw Exception('Sign in first, then enable remote monitoring.');
       }
       preferences.remoteMonitoringOptIn = true;
       preferences.touch();
@@ -652,17 +759,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (normalized.length < 4 || normalized.length > 8 || int.tryParse(normalized) == null) {
       throw Exception('Choose a 4–8 digit PIN.');
     }
-    final hash = sha256.convert(utf8.encode('zy-salt:$normalized')).toString();
-    await store.saveAdminPinHash(hash);
+    final saltBytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+    final salt = base64UrlEncode(saltBytes);
+    final hash = sha256.convert(utf8.encode('$salt:$normalized')).toString();
+    await store.saveAdminPinHash('$salt:$hash');
   }
 
   Future<bool> hasAdminPin() async => (await store.loadAdminPinHash()) != null;
 
   Future<bool> verifyAdminPin(String pin) async {
-    final hash = await store.loadAdminPinHash();
-    if (hash == null) return false;
-    final attempt = sha256.convert(utf8.encode('zy-salt:${pin.trim()}')).toString();
-    return hash == attempt;
+    final stored = await store.loadAdminPinHash();
+    if (stored == null) return false;
+    final normalized = pin.trim();
+    // Phase 8+: "salt:hash". Legacy static salt kept for one upgrade cycle.
+    if (stored.contains(':') && !stored.startsWith('zy-salt:')) {
+      final sep = stored.indexOf(':');
+      final salt = stored.substring(0, sep);
+      final expected = stored.substring(sep + 1);
+      final attempt = sha256.convert(utf8.encode('$salt:$normalized')).toString();
+      return attempt == expected;
+    }
+    final legacy = sha256.convert(utf8.encode('zy-salt:$normalized')).toString();
+    if (stored == legacy || stored == 'zy-salt:$legacy') {
+      // Re-hash with a random salt on successful unlock.
+      await setAdminPin(normalized);
+      return true;
+    }
+    return false;
   }
 
   SleepAlarm? _firstEnabledAlarm() {

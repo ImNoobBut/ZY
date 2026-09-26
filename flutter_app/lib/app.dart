@@ -5,6 +5,7 @@ import 'app_state.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/alarms/alarms_screen.dart';
+import 'features/auth/auth_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/privacy/privacy_screen.dart';
@@ -48,6 +49,9 @@ class _RootGate extends StatelessWidget {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
+    }
+    if (!state.isLoggedIn) {
+      return const AuthScreen();
     }
     if (!state.preferences.hasCompletedOnboarding) {
       return const OnboardingScreen();

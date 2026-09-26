@@ -16,12 +16,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+import bcrypt
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 import uvicorn
 
@@ -39,8 +40,33 @@ from db import (
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 TOKEN_TTL_SECONDS = 3600
+ADMIN_TOKEN_TTL_SECONDS = TOKEN_TTL_SECONDS * 24
+PAIRING_RATE_LIMIT = 20
+AUTH_RATE_LIMIT = 15
+RATE_WINDOW_SECONDS = 60.0
 
-app = FastAPI(title="Sleeping Routine for Zy — Admin + Sync API", version="0.9.0")
+app = FastAPI(title="Sleeping Routine for Zy — Admin + Sync API", version="0.9.1")
+
+# ip_or_key -> recent attempt timestamps (in-memory; resets on process restart)
+_rate_buckets: dict[str, list[float]] = {}
+
+
+def _client_key(request: Request, suffix: str) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    else:
+        ip = request.client.host if request.client else "unknown"
+    return f"{ip}:{suffix}"
+
+
+def _rate_limit(key: str, *, limit: int, window: float = RATE_WINDOW_SECONDS) -> None:
+    now = time.time()
+    bucket = _rate_buckets.setdefault(key, [])
+    bucket[:] = [t for t in bucket if now - t < window]
+    if len(bucket) >= limit:
+        raise HTTPException(status_code=429, detail="Too many attempts — try again shortly")
+    bucket.append(now)
 
 
 def _cors_origins() -> list[str]:
@@ -100,6 +126,23 @@ class JoinAccountBody(BaseModel):
     displayName: str = "Zy linked device"
 
 
+class AuthRegisterBody(BaseModel):
+    email: str
+    password: str = Field(min_length=8, max_length=72)
+    displayName: str = Field(min_length=1, max_length=120)
+    deviceDisplayName: str = "Zy device"
+
+
+class AuthLoginBody(BaseModel):
+    email: str
+    password: str = Field(min_length=1, max_length=72)
+    deviceDisplayName: str = "Zy device"
+
+
+class AuthMePatchBody(BaseModel):
+    displayName: str = Field(min_length=1, max_length=120)
+
+
 class SyncMutation(BaseModel):
     entityType: str = Field(description="preferences | alarm | session | routine")
     entityId: str
@@ -113,6 +156,21 @@ class SyncPushBody(BaseModel):
 
 
 ALLOWED_ENTITY_TYPES = frozenset({"preferences", "alarm", "session", "routine"})
+
+
+def _normalize_email(raw: str) -> str:
+    return raw.strip().lower()
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def _normalize_pairing_code(raw: str) -> str:
@@ -140,8 +198,8 @@ def _issue_tokens() -> tuple[str, str, float]:
     return access, refresh, expires
 
 
-def _device_auth_payload(device: Device) -> dict[str, Any]:
-    return {
+def _device_auth_payload(device: Device, account: Account | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "deviceId": device.id,
         "accountId": device.account_id,
         "accessToken": device.access_token,
@@ -149,6 +207,32 @@ def _device_auth_payload(device: Device) -> dict[str, Any]:
         "pairingCode": device.pairing_code,
         "expiresIn": TOKEN_TTL_SECONDS,
     }
+    if account is not None:
+        payload["email"] = account.email
+        payload["displayName"] = account.display_name
+    return payload
+
+
+def _create_device_for_account(
+    db: Session,
+    *,
+    account_id: str,
+    device_display_name: str,
+) -> Device:
+    device_id = str(uuid.uuid4())
+    pairing = _new_pairing_code(db)
+    access, refresh, expires = _issue_tokens()
+    device = Device(
+        id=device_id,
+        account_id=account_id,
+        display_name=device_display_name.strip() or "Zy device",
+        access_token=access,
+        refresh_token=refresh,
+        pairing_code=pairing,
+        access_expires_at=expires,
+    )
+    db.add(device)
+    return device
 
 
 def require_device(
@@ -176,6 +260,10 @@ def require_admin(
     row = db.get(AdminToken, token)
     if not row:
         raise HTTPException(status_code=401, detail="Invalid admin token")
+    if row.expires_at is None or row.expires_at < time.time():
+        db.delete(row)
+        db.commit()
+        raise HTTPException(status_code=401, detail="Admin token expired")
     return row.device_id
 
 
@@ -186,44 +274,140 @@ def on_startup() -> None:
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> dict[str, Any]:
-    devices = list(db.scalars(select(Device)).all())
+    """Liveness for Render/load balancers. Never expose pairing codes or tokens."""
+    device_count = db.scalar(select(Device.id).limit(1))
+    has_devices = device_count is not None
     db_url = (os.environ.get("DATABASE_URL") or "").strip()
     engine_kind = "postgres" if db_url.startswith(("postgres://", "postgresql://")) else "sqlite"
     return {
         "status": "ok",
-        "devices": len(devices),
-        "pairingCodes": sorted(d.pairing_code for d in devices),
+        "hasDevices": has_devices,
         "database": engine_kind,
+    }
+
+
+@app.post("/v1/auth/register")
+def auth_register(
+    body: AuthRegisterBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _rate_limit(_client_key(request, "auth"), limit=AUTH_RATE_LIMIT)
+    email = _normalize_email(body.email)
+    if "@" not in email or len(email) < 3:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    display_name = body.displayName.strip()
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Display name is required")
+
+    existing = db.scalar(select(Account).where(Account.email == email))
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    account_id = str(uuid.uuid4())
+    account = Account(
+        id=account_id,
+        email=email,
+        password_hash=_hash_password(body.password),
+        display_name=display_name,
+    )
+    db.add(account)
+    device = _create_device_for_account(
+        db,
+        account_id=account_id,
+        device_display_name=body.deviceDisplayName,
+    )
+    db.commit()
+    db.refresh(device)
+    db.refresh(account)
+    return _device_auth_payload(device, account)
+
+
+@app.post("/v1/auth/login")
+def auth_login(
+    body: AuthLoginBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _rate_limit(_client_key(request, "auth"), limit=AUTH_RATE_LIMIT)
+    email = _normalize_email(body.email)
+    account = db.scalar(select(Account).where(Account.email == email))
+    if (
+        account is None
+        or not account.password_hash
+        or not _verify_password(body.password, account.password_hash)
+    ):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    device = _create_device_for_account(
+        db,
+        account_id=account.id,
+        device_display_name=body.deviceDisplayName,
+    )
+    db.commit()
+    db.refresh(device)
+    return _device_auth_payload(device, account)
+
+
+@app.get("/v1/auth/me")
+def auth_me(
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    account = db.get(Account, device.account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {
+        "accountId": account.id,
+        "email": account.email,
+        "displayName": account.display_name,
+    }
+
+
+@app.patch("/v1/auth/me")
+def auth_me_patch(
+    body: AuthMePatchBody,
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    account = db.get(Account, device.account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    display_name = body.displayName.strip()
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Display name is required")
+    account.display_name = display_name
+    db.commit()
+    return {
+        "accountId": account.id,
+        "email": account.email,
+        "displayName": account.display_name,
     }
 
 
 @app.post("/v1/devices/register")
 def register(body: RegisterBody, db: Session = Depends(get_db)) -> dict[str, Any]:
     account_id = str(uuid.uuid4())
-    device_id = str(uuid.uuid4())
-    pairing = _new_pairing_code(db)
-    access, refresh, expires = _issue_tokens()
     db.add(Account(id=account_id))
-    db.add(
-        Device(
-            id=device_id,
-            account_id=account_id,
-            display_name=body.displayName,
-            access_token=access,
-            refresh_token=refresh,
-            pairing_code=pairing,
-            access_expires_at=expires,
-        )
+    device = _create_device_for_account(
+        db,
+        account_id=account_id,
+        device_display_name=body.displayName,
     )
     db.commit()
-    device = db.get(Device, device_id)
+    device = db.get(Device, device.id)
     assert device is not None
     return _device_auth_payload(device)
 
 
 @app.post("/v1/devices/join")
-def join_account(body: JoinAccountBody, db: Session = Depends(get_db)) -> dict[str, Any]:
+def join_account(
+    body: JoinAccountBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     """Create a new device under an existing account (share sync via pairing code)."""
+    _rate_limit(_client_key(request, "pair"), limit=PAIRING_RATE_LIMIT)
     code = _normalize_pairing_code(body.pairingCode)
     owner = db.scalar(select(Device).where(Device.pairing_code == code))
     if not owner:
@@ -234,19 +418,11 @@ def join_account(body: JoinAccountBody, db: Session = Depends(get_db)) -> dict[s
                 f"(not your PIN). Tried '{code}'."
             ),
         )
-    device_id = str(uuid.uuid4())
-    pairing = _new_pairing_code(db)
-    access, refresh, expires = _issue_tokens()
-    device = Device(
-        id=device_id,
+    device = _create_device_for_account(
+        db,
         account_id=owner.account_id,
-        display_name=body.displayName,
-        access_token=access,
-        refresh_token=refresh,
-        pairing_code=pairing,
-        access_expires_at=expires,
+        device_display_name=body.displayName,
     )
-    db.add(device)
     db.commit()
     db.refresh(device)
     return _device_auth_payload(device)
@@ -286,7 +462,12 @@ def check_in(
 
 
 @app.post("/v1/admin/pair")
-def admin_pair(body: PairBody, db: Session = Depends(get_db)) -> dict[str, Any]:
+def admin_pair(
+    body: PairBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _rate_limit(_client_key(request, "pair"), limit=PAIRING_RATE_LIMIT)
     code = _normalize_pairing_code(body.pairingCode)
     device = db.scalar(select(Device).where(Device.pairing_code == code))
     if not device:
@@ -298,14 +479,17 @@ def admin_pair(body: PairBody, db: Session = Depends(get_db)) -> dict[str, Any]:
                 f"Tried '{code}'."
             ),
         )
+    # Revoke prior guardian sessions for this device, then issue a fresh TTL'd token.
+    db.execute(delete(AdminToken).where(AdminToken.device_id == device.id))
     token = secrets.token_urlsafe(32)
-    db.add(AdminToken(token=token, device_id=device.id))
+    expires_at = time.time() + ADMIN_TOKEN_TTL_SECONDS
+    db.add(AdminToken(token=token, device_id=device.id, expires_at=expires_at))
     db.commit()
     return {
         "adminToken": token,
         "deviceId": device.id,
         "accountId": device.account_id,
-        "expiresIn": TOKEN_TTL_SECONDS * 24,
+        "expiresIn": ADMIN_TOKEN_TTL_SECONDS,
     }
 
 

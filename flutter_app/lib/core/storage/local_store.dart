@@ -3,8 +3,15 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
+import 'secure_store.dart';
+import 'secure_store_factory.dart';
 
 class LocalStore {
+  LocalStore({SecureStore? secureStore})
+      : _secure = secureStore ?? createSecureStore();
+
+  final SecureStore _secure;
+
   static const _prefsKey = 'user_preferences_v1';
   static const _routineKey = 'active_routine_v1';
   static const _alarmsKey = 'alarms_v1';
@@ -12,9 +19,11 @@ class LocalStore {
   static const _spotifyTokensKey = 'spotify_tokens_v1';
   static const _adminCredsKey = 'admin_creds_v1';
   static const _adminPinKey = 'admin_pin_hash_v1';
+  static const _userProfileKey = 'user_profile_v1';
   static const _outboxKey = 'sync_outbox_v1';
   static const _syncCursorKey = 'sync_cursor_v1';
   static const _lastSyncKey = 'sync_last_success_v1';
+  static const _pkceKey = 'spotify_pkce_v1';
   static const _maxSessions = 60;
 
   Future<UserPreferences> loadPreferences() async {
@@ -146,64 +155,79 @@ class LocalStore {
   }
 
   Future<Map<String, dynamic>?> loadSpotifyTokens() async {
+    return _loadSecureJson(_spotifyTokensKey);
+  }
+
+  Future<void> saveSpotifyTokens(Map<String, dynamic>? tokens) async {
+    await _saveSecureJson(_spotifyTokensKey, tokens);
+  }
+
+  Future<Map<String, dynamic>?> loadUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_spotifyTokensKey);
+    final raw = prefs.getString(_userProfileKey);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
-  Future<void> saveSpotifyTokens(Map<String, dynamic>? tokens) async {
+  Future<void> saveUserProfile(Map<String, dynamic>? profile) async {
     final prefs = await SharedPreferences.getInstance();
-    if (tokens == null) {
-      await prefs.remove(_spotifyTokensKey);
+    if (profile == null) {
+      await prefs.remove(_userProfileKey);
     } else {
-      await prefs.setString(_spotifyTokensKey, jsonEncode(tokens));
+      await prefs.setString(_userProfileKey, jsonEncode(profile));
     }
   }
 
   Future<Map<String, dynamic>?> loadAdminCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_adminCredsKey);
-    if (raw == null) return null;
-    return jsonDecode(raw) as Map<String, dynamic>;
+    return _loadSecureJson(_adminCredsKey);
   }
 
   Future<void> saveAdminCredentials(Map<String, dynamic>? creds) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (creds == null) {
-      await prefs.remove(_adminCredsKey);
-    } else {
-      await prefs.setString(_adminCredsKey, jsonEncode(creds));
-    }
+    await _saveSecureJson(_adminCredsKey, creds);
   }
 
   Future<String?> loadAdminPinHash() async {
+    final secure = await _secure.read(_adminPinKey);
+    if (secure != null) return secure;
+    // One-time migrate from plaintext SharedPreferences (pre–Phase 8).
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_adminPinKey);
+    final legacy = prefs.getString(_adminPinKey);
+    if (legacy == null) return null;
+    await _secure.write(_adminPinKey, legacy);
+    await prefs.remove(_adminPinKey);
+    return legacy;
   }
 
   Future<void> saveAdminPinHash(String? hash) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_adminPinKey);
     if (hash == null) {
-      await prefs.remove(_adminPinKey);
+      await _secure.delete(_adminPinKey);
     } else {
-      await prefs.setString(_adminPinKey, hash);
+      await _secure.write(_adminPinKey, hash);
     }
   }
 
-  static const _pkceKey = 'spotify_pkce_v1';
-
   Future<void> saveSpotifyPkce({required String verifier, required String state}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await _secure.write(
       _pkceKey,
       jsonEncode({'verifier': verifier, 'state': state}),
     );
+    // Clear any pre–Phase 8 plaintext copy.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pkceKey);
   }
 
   Future<Map<String, String>?> loadSpotifyPkce() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_pkceKey);
+    var raw = await _secure.read(_pkceKey);
+    if (raw == null) {
+      final prefs = await SharedPreferences.getInstance();
+      raw = prefs.getString(_pkceKey);
+      if (raw != null) {
+        await _secure.write(_pkceKey, raw);
+        await prefs.remove(_pkceKey);
+      }
+    }
     if (raw == null) return null;
     final map = jsonDecode(raw) as Map<String, dynamic>;
     return {
@@ -213,7 +237,32 @@ class LocalStore {
   }
 
   Future<void> clearSpotifyPkce() async {
+    await _secure.delete(_pkceKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pkceKey);
+  }
+
+  Future<Map<String, dynamic>?> _loadSecureJson(String key) async {
+    var raw = await _secure.read(key);
+    if (raw == null) {
+      final prefs = await SharedPreferences.getInstance();
+      raw = prefs.getString(key);
+      if (raw != null) {
+        await _secure.write(key, raw);
+        await prefs.remove(key);
+      }
+    }
+    if (raw == null) return null;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  Future<void> _saveSecureJson(String key, Map<String, dynamic>? value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+    if (value == null) {
+      await _secure.delete(key);
+    } else {
+      await _secure.write(key, jsonEncode(value));
+    }
   }
 }

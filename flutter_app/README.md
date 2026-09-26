@@ -117,6 +117,7 @@ Spotify Redirect URI on Pages is `{origin}/callback` (register `https://sleeping
 | Spotify PKCE + Web API | Yes (Android deep link + web redirect) |
 | Remote Admin opt-in + pairing | Yes (includes bedtime + streak) |
 | Privacy screen | Yes |
+| Secure credential store (Phase 8) | Yes — Keystore/Keychain on mobile; web origin-trust documented |
 
 ## Relationship to Swift
 

@@ -4,7 +4,7 @@
 
 **Sleeping Routine for Zy** is a calm, privacy-first iPhone app that helps Zy keep a consistent bedtime routine: sleep timer, music (including Spotify where supported), wake alarms via local notifications, and an optional **remote Admin** status dashboard for a guardian.
 
-This repository currently contains **Phase 7 — Remote Admin**: opt-in HTTPS check-in, Keychain device tokens, local Admin PIN, Privacy screen, and a runnable FastAPI backend + guardian dashboard (in-memory store for local demo; PostgreSQL for production).
+This repository currently contains **Phase 8 — Privacy / security audit**: hardened Remote Admin API (no pairing codes on `/health`, admin token TTL + revoke-on-repair, auth/pair rate limits), Flutter secure credential storage, corrected privacy copy, plus Phases 1–7 (routine, alarms, Spotify, Remote Admin).
 
 ## Features
 
@@ -27,7 +27,7 @@ This repository currently contains **Phase 7 — Remote Admin**: opt-in HTTPS ch
 | Remote Admin backend + check-in | Phase 7 complete (+ bedtime/streak fields) |
 | Flutter Android exact alarms + Spotify deep link | MVP complete |
 | Flutter web best-effort reminders | MVP complete |
-| Privacy / security audit | Phase 8 |
+| Privacy / security audit | Phase 8 complete |
 | Full device test matrix | Phase 9 |
 
 ## Requirements
@@ -155,14 +155,26 @@ Phase 1–6 unit coverage includes:
 
 ## Privacy
 
-The app collects only what is needed for the sleep routine and **opted-in** remote Admin status, for example:
+The app collects only what is needed for the sleep routine, optional account, and **opted-in** remote Admin status, for example:
 
+- Account email and display name when you register (password is bcrypt-hashed server-side; never stored in the app)
 - Sleep routine and alarm settings
-- Spotify connection state (not passwords)
+- Spotify connection state (tokens in Keychain / platform secure store — not passwords)
 - App-generated sleep session history (app activity, not medical sleep quality)
 - Device status fields the user agrees to share (battery, charging, routine active, etc.)
 
-**Never collected:** messages, passwords, browsing history, keystrokes, other apps’ private content, microphone, camera, location, screen contents.
+**Never collected:** messages, browsing history, keystrokes, other apps’ private content, microphone, camera, location, screen contents. Account passwords are never stored in plaintext.
+
+## Phase 8 — Privacy / security audit (complete)
+
+Hardening shipped with this phase:
+
+- `/health` no longer returns pairing codes (critical leak fixed)
+- Admin bearer tokens expire (24h) and are revoked on re-pair
+- Rate limits on auth + pairing endpoints
+- Flutter OAuth / device tokens + Admin PIN moved to platform secure store (Keystore/Keychain); web documents origin-trust limitation
+- Admin PIN uses a per-device random salt
+- Privacy screens updated for account auth honesty
 
 ## iOS Limitations
 
@@ -248,7 +260,7 @@ Phases 1–7 plus **MVP AlarmKit + cross-platform alarms/Spotify** are implement
 - **Flutter Android:** exact local notifications + Spotify deep-link (`sleepingroutineforzy://spotify-callback`)
 - **Flutter Web:** best-effort browser reminders + Spotify web redirect
 
-**Next:** Phase 8 — Privacy / security audit, or full device test matrix (Phase 9).
+**Next:** Phase 9 — full device test matrix (iPhone AlarmKit + notification fallback, Android exact alarms, web best-effort reminders).
 
 ## Architecture notes
 

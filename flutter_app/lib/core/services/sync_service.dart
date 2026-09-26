@@ -180,13 +180,19 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> ensureRegistered() async {
-    if (admin.isRegistered) return;
-    await admin.register(displayName: kIsWeb ? 'Zy Web' : 'Zy Flutter');
-    await seedLocalSnapshot();
+    // Email/password auth creates the device; do not auto-register anonymously.
+    if (!admin.isRegistered) {
+      throw Exception('Sign in required before sync');
+    }
   }
 
   Future<void> syncNow({bool forcePullAll = false}) async {
     if (syncing) return;
+    if (!admin.isRegistered) {
+      lastError = null;
+      notifyListeners();
+      return;
+    }
     if (!online) {
       lastError = 'Offline — changes stay on this device until you reconnect.';
       notifyListeners();

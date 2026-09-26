@@ -26,6 +26,7 @@ const int kFadeOutSeconds = 300;
 class UserPreferences {
   UserPreferences({
     this.hasCompletedOnboarding = false,
+    this.displayName = '',
     this.defaultSleepTimerSeconds = 30 * 60,
     this.preferredBedtimeHour = 22,
     this.preferredBedtimeMinute = 0,
@@ -42,6 +43,8 @@ class UserPreferences {
   }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   bool hasCompletedOnboarding;
+  /// Greeting name; synced across devices via preferences.
+  String displayName;
   int defaultSleepTimerSeconds;
   int preferredBedtimeHour;
   int preferredBedtimeMinute;
@@ -66,6 +69,7 @@ class UserPreferences {
 
   Map<String, dynamic> toJson() => {
         'hasCompletedOnboarding': hasCompletedOnboarding,
+        'displayName': displayName,
         'defaultSleepTimerSeconds': defaultSleepTimerSeconds,
         'preferredBedtimeHour': preferredBedtimeHour,
         'preferredBedtimeMinute': preferredBedtimeMinute,
@@ -84,6 +88,7 @@ class UserPreferences {
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
     return UserPreferences(
       hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
+      displayName: (json['displayName'] as String?)?.trim() ?? '',
       defaultSleepTimerSeconds: json['defaultSleepTimerSeconds'] as int? ?? 30 * 60,
       preferredBedtimeHour: json['preferredBedtimeHour'] as int? ?? 22,
       preferredBedtimeMinute: json['preferredBedtimeMinute'] as int? ?? 0,

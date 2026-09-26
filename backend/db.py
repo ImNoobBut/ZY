@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator
@@ -75,6 +76,10 @@ class Account(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Nullable so legacy anonymous device accounts keep working.
+    email: Mapped[str | None] = mapped_column(String(320), unique=True, nullable=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     devices: Mapped[list[Device]] = relationship(back_populates="account")
 
@@ -103,6 +108,8 @@ class AdminToken(Base):
     token: Mapped[str] = mapped_column(String(128), primary_key=True)
     device_id: Mapped[str] = mapped_column(String(36), ForeignKey("devices.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Unix epoch seconds; NULL on legacy rows treated as expired after migration backfill.
+    expires_at: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class DeviceStatusRow(Base):
@@ -152,9 +159,73 @@ class SyncEntity(Base):
         self.payload_json = json.dumps(data)
 
 
+def ensure_account_auth_columns() -> None:
+    """Add email/password/display_name on existing DBs (create_all won't alter)."""
+    with engine.begin() as conn:
+        if _is_sqlite:
+            cols = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(accounts)").fetchall()
+            }
+            if "email" not in cols:
+                conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN email VARCHAR(320)")
+            if "password_hash" not in cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE accounts ADD COLUMN password_hash VARCHAR(128)"
+                )
+            if "display_name" not in cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE accounts ADD COLUMN display_name VARCHAR(120)"
+                )
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_accounts_email ON accounts (email)"
+            )
+        else:
+            conn.exec_driver_sql(
+                "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email VARCHAR(320)"
+            )
+            conn.exec_driver_sql(
+                "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS password_hash VARCHAR(128)"
+            )
+            conn.exec_driver_sql(
+                "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS display_name VARCHAR(120)"
+            )
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_accounts_email_unique "
+                "ON accounts (email) WHERE email IS NOT NULL"
+            )
+
+
+def ensure_admin_token_expiry_column() -> None:
+    """Add expires_at on admin_tokens for Phase 8 hardening."""
+    deadline = time.time() + 86400
+    with engine.begin() as conn:
+        if _is_sqlite:
+            cols = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(admin_tokens)").fetchall()
+            }
+            if "expires_at" not in cols:
+                conn.exec_driver_sql("ALTER TABLE admin_tokens ADD COLUMN expires_at FLOAT")
+            # Legacy tokens: grant one remaining TTL window from now.
+            conn.exec_driver_sql(
+                f"UPDATE admin_tokens SET expires_at = {deadline} WHERE expires_at IS NULL"
+            )
+        else:
+            conn.exec_driver_sql(
+                "ALTER TABLE admin_tokens ADD COLUMN IF NOT EXISTS expires_at DOUBLE PRECISION"
+            )
+            conn.exec_driver_sql(
+                "UPDATE admin_tokens SET expires_at = EXTRACT(EPOCH FROM NOW()) + 86400 "
+                "WHERE expires_at IS NULL"
+            )
+
+
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    ensure_account_auth_columns()
+    ensure_admin_token_expiry_column()
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -20,11 +20,26 @@ class SettingsScreen extends StatelessWidget {
                 ? 'Not synced yet'
                 : 'Last sync ok'
                     '${state.sync.pendingCount > 0 ? ' · ${state.sync.pendingCount} pending' : ''}');
+    final profile = state.auth.profile;
+    final name = state.preferences.displayName.trim().isNotEmpty
+        ? state.preferences.displayName.trim()
+        : (profile?.displayName ?? '—');
 
     return NightScaffold(
       title: 'Settings',
       child: ListView(
         children: [
+          ListTile(
+            title: const Text('Account'),
+            subtitle: Text(
+              profile == null
+                  ? 'Not signed in'
+                  : '$name · ${profile.email}',
+              style: const TextStyle(color: AppTheme.secondaryText),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _openAccountSheet(context, state),
+          ),
           ListTile(
             title: const Text('Sync & install'),
             subtitle: Text(
@@ -102,5 +117,81 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openAccountSheet(BuildContext context, AppState state) async {
+    final profile = state.auth.profile;
+    if (profile == null) return;
+
+    final nameController = TextEditingController(
+      text: state.preferences.displayName.trim().isNotEmpty
+          ? state.preferences.displayName
+          : profile.displayName,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return ListenableBuilder(
+          listenable: state,
+          builder: (ctx, _) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.viewInsetsOf(ctx).bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Account',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    profile.email,
+                    style: const TextStyle(color: AppTheme.secondaryText),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Display name'),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(
+                    label: 'Save name',
+                    busy: state.busy,
+                    onPressed: () async {
+                      try {
+                        await state.updateDisplayName(nameController.text);
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                      } catch (_) {}
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Sign out',
+                    onPressed: () async {
+                      await state.signOut();
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    nameController.dispose();
   }
 }

@@ -44,7 +44,11 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/v1/devices/register` | none | New account + device; returns tokens + pairing code |
+| POST | `/v1/auth/register` | none | Email/password signup + device; returns tokens + profile |
+| POST | `/v1/auth/login` | none | Email/password login; new device on account |
+| GET | `/v1/auth/me` | Bearer device | Current account email + display name |
+| PATCH | `/v1/auth/me` | Bearer device | Update display name |
+| POST | `/v1/devices/register` | none | New anonymous account + device; returns tokens + pairing code |
 | POST | `/v1/devices/join` | none | New device on an existing account (pairing code) |
 | POST | `/v1/devices/refresh` | refresh token body | Rotate access token |
 | POST | `/v1/devices/check-in` | Bearer device | Upload opted-in `deviceStatus` |
@@ -64,4 +68,7 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 - Prefer Neon/Postgres over SQLite on free PaaS (ephemeral disks).
 - Terminate TLS at the platform edge (Render does this).
 - Set `CORS_ORIGINS` to the exact Pages URL(s).
-- Add rate limits and shorter pairing-code TTL when you harden further.
+- `/health` is liveness-only — it must never return pairing codes or tokens.
+- Admin dashboard tokens expire after 24h; re-pair to rotate. Auth and pairing routes are rate-limited per client IP.
+- Pairing codes are 6-digit secrets: treat them like one-time PINs and do not log them.
+- After deploy, restart once so `ensure_admin_token_expiry_column` adds `expires_at` on existing DBs.

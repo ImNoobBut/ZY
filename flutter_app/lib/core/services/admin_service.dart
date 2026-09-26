@@ -76,6 +76,10 @@ class AdminService {
     });
   }
 
+  /// Used by AuthService after email/password login or register.
+  Future<void> applyAuthResponse(Map<String, dynamic> json) =>
+      _applyAuthResponse(json);
+
   Future<void> checkIn(DeviceStatus status) async {
     if (!isRegistered) throw Exception('Device not registered');
     final res = await http.post(

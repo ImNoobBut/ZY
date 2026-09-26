@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app_state.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/greeting.dart';
 import '../../ui/widgets.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -41,13 +42,16 @@ class HomeScreen extends StatelessWidget {
         : (preferSpotify
             ? (state.preferences.selectedSpotifyTitle ?? 'Spotify')
             : state.preferences.selectedQuietSound.displayName);
+    final headline = active
+        ? 'Sleep routine active'
+        : greetingFor(DateTime.now(), state.preferences.displayName);
 
     return NightScaffold(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           Text(
-            active ? 'Sleep routine active' : 'Good evening, Zy',
+            headline,
             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
