@@ -13,6 +13,7 @@ class AdminService {
   final LocalStore store;
 
   String? deviceId;
+  String? accountId;
   String? accessToken;
   String? refreshToken;
   String? pairingCode;
@@ -23,6 +24,7 @@ class AdminService {
     final creds = await store.loadAdminCredentials();
     if (creds == null) return;
     deviceId = creds['deviceId'] as String?;
+    accountId = creds['accountId'] as String?;
     accessToken = creds['accessToken'] as String?;
     refreshToken = creds['refreshToken'] as String?;
     pairingCode = creds['pairingCode'] as String?;
@@ -37,13 +39,37 @@ class AdminService {
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Admin backend unavailable at ${config.backendBaseUrl}');
     }
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    await _applyAuthResponse(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  /// Join an existing sync account using another device's pairing code.
+  Future<void> joinAccount({
+    required String pairingCode,
+    String displayName = 'Zy linked device',
+  }) async {
+    final res = await http.post(
+      Uri.parse('${config.backendBaseUrl}/v1/devices/join'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'pairingCode': pairingCode,
+        'displayName': displayName,
+      }),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Could not join account (${res.statusCode}): ${res.body}');
+    }
+    await _applyAuthResponse(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<void> _applyAuthResponse(Map<String, dynamic> json) async {
     deviceId = json['deviceId'] as String;
+    accountId = json['accountId'] as String?;
     accessToken = json['accessToken'] as String;
     refreshToken = json['refreshToken'] as String;
     pairingCode = json['pairingCode'] as String;
     await store.saveAdminCredentials({
       'deviceId': deviceId,
+      'accountId': accountId,
       'accessToken': accessToken,
       'refreshToken': refreshToken,
       'pairingCode': pairingCode,
@@ -71,6 +97,7 @@ class AdminService {
 
   Future<void> clear() async {
     deviceId = null;
+    accountId = null;
     accessToken = null;
     refreshToken = null;
     pairingCode = null;
@@ -91,9 +118,13 @@ class AdminService {
     refreshToken = (json['refreshToken'] as String?) ?? refreshToken;
     await store.saveAdminCredentials({
       'deviceId': deviceId,
+      'accountId': accountId,
       'accessToken': accessToken,
       'refreshToken': refreshToken,
       'pairingCode': pairingCode,
     });
   }
+
+  /// Exposed for SyncService token refresh.
+  Future<void> refreshTokens() => _refresh();
 }

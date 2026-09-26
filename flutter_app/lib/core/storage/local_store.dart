@@ -12,6 +12,9 @@ class LocalStore {
   static const _spotifyTokensKey = 'spotify_tokens_v1';
   static const _adminCredsKey = 'admin_creds_v1';
   static const _adminPinKey = 'admin_pin_hash_v1';
+  static const _outboxKey = 'sync_outbox_v1';
+  static const _syncCursorKey = 'sync_cursor_v1';
+  static const _lastSyncKey = 'sync_last_success_v1';
   static const _maxSessions = 60;
 
   Future<UserPreferences> loadPreferences() async {
@@ -74,11 +77,72 @@ class LocalStore {
     while (sessions.length > _maxSessions) {
       sessions.removeLast();
     }
+    await saveSessions(sessions);
+  }
+
+  Future<void> saveSessions(List<SleepSessionRecord> sessions) async {
+    final trimmed = sessions.length > _maxSessions
+        ? sessions.sublist(0, _maxSessions)
+        : sessions;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _sessionsKey,
-      jsonEncode(sessions.map((e) => e.toJson()).toList()),
+      jsonEncode(trimmed.map((e) => e.toJson()).toList()),
     );
+  }
+
+  Future<List<SyncMutation>> loadOutbox() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_outboxKey);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List;
+    return list.map((e) => SyncMutation.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> saveOutbox(List<SyncMutation> mutations) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _outboxKey,
+      jsonEncode(mutations.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  /// Upsert a mutation into the outbox (same entity replaces older pending).
+  Future<void> enqueueMutation(SyncMutation mutation) async {
+    final box = await loadOutbox();
+    box.removeWhere(
+      (m) => m.entityType == mutation.entityType && m.entityId == mutation.entityId,
+    );
+    box.add(mutation);
+    await saveOutbox(box);
+  }
+
+  Future<String?> loadSyncCursor() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_syncCursorKey);
+  }
+
+  Future<void> saveSyncCursor(String? cursor) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (cursor == null) {
+      await prefs.remove(_syncCursorKey);
+    } else {
+      await prefs.setString(_syncCursorKey, cursor);
+    }
+  }
+
+  Future<String?> loadLastSyncIso() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastSyncKey);
+  }
+
+  Future<void> saveLastSyncIso(String? iso) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (iso == null) {
+      await prefs.remove(_lastSyncKey);
+    } else {
+      await prefs.setString(_lastSyncKey, iso);
+    }
   }
 
   Future<Map<String, dynamic>?> loadSpotifyTokens() async {

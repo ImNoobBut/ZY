@@ -38,7 +38,8 @@ class UserPreferences {
     this.selectedSpotifyTitle,
     this.remoteMonitoringOptIn = false,
     this.lastSuccessfulCheckInIso,
-  });
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   bool hasCompletedOnboarding;
   int defaultSleepTimerSeconds;
@@ -53,6 +54,9 @@ class UserPreferences {
   String? selectedSpotifyTitle;
   bool remoteMonitoringOptIn;
   String? lastSuccessfulCheckInIso;
+  DateTime updatedAt;
+
+  void touch() => updatedAt = DateTime.now().toUtc();
 
   String get preferredBedtimeLabel {
     final h = preferredBedtimeHour.toString().padLeft(2, '0');
@@ -74,6 +78,7 @@ class UserPreferences {
         'selectedSpotifyTitle': selectedSpotifyTitle,
         'remoteMonitoringOptIn': remoteMonitoringOptIn,
         'lastSuccessfulCheckInIso': lastSuccessfulCheckInIso,
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
@@ -91,8 +96,15 @@ class UserPreferences {
       selectedSpotifyTitle: json['selectedSpotifyTitle'] as String?,
       remoteMonitoringOptIn: json['remoteMonitoringOptIn'] as bool? ?? false,
       lastSuccessfulCheckInIso: json['lastSuccessfulCheckInIso'] as String?,
+      updatedAt: _parseDate(json['updatedAt']) ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
+}
+
+DateTime? _parseDate(Object? value) {
+  if (value is! String || value.isEmpty) return null;
+  return DateTime.tryParse(value)?.toUtc();
 }
 
 enum MusicSource { spotify, local, none }
@@ -117,7 +129,8 @@ class SleepRoutine {
     this.startedAt,
     this.endsAt,
     this.alarmId,
-  });
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   final String id;
   bool isEnabled;
@@ -126,6 +139,9 @@ class SleepRoutine {
   DateTime? startedAt;
   DateTime? endsAt;
   String? alarmId;
+  DateTime updatedAt;
+
+  void touch() => updatedAt = DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -135,6 +151,7 @@ class SleepRoutine {
         'startedAt': startedAt?.toIso8601String(),
         'endsAt': endsAt?.toIso8601String(),
         'alarmId': alarmId,
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory SleepRoutine.fromJson(Map<String, dynamic> json) {
@@ -149,6 +166,7 @@ class SleepRoutine {
       startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt'] as String) : null,
       endsAt: json['endsAt'] != null ? DateTime.parse(json['endsAt'] as String) : null,
       alarmId: json['alarmId'] as String?,
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now().toUtc(),
     );
   }
 }
@@ -162,7 +180,9 @@ class SleepAlarm {
     this.isEnabled = true,
     /// Dart [DateTime.weekday]: Mon=1 … Sun=7. Empty = once (next matching time).
     Set<int>? repeatDays,
-  }) : repeatDays = repeatDays ?? <int>{};
+    DateTime? updatedAt,
+  })  : repeatDays = repeatDays ?? <int>{},
+        updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   final String id;
   int hour;
@@ -170,6 +190,9 @@ class SleepAlarm {
   String label;
   bool isEnabled;
   Set<int> repeatDays;
+  DateTime updatedAt;
+
+  void touch() => updatedAt = DateTime.now().toUtc();
 
   static const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -204,6 +227,7 @@ class SleepAlarm {
         'label': label,
         'isEnabled': isEnabled,
         'repeatDays': repeatDays.toList(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory SleepAlarm.fromJson(Map<String, dynamic> json) {
@@ -215,6 +239,7 @@ class SleepAlarm {
       label: json['label'] as String? ?? 'Wake up',
       isEnabled: json['isEnabled'] as bool? ?? true,
       repeatDays: days.toSet(),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now().toUtc(),
     );
   }
 
@@ -224,6 +249,7 @@ class SleepAlarm {
     String? label,
     bool? isEnabled,
     Set<int>? repeatDays,
+    DateTime? updatedAt,
   }) {
     return SleepAlarm(
       id: id,
@@ -232,6 +258,7 @@ class SleepAlarm {
       label: label ?? this.label,
       isEnabled: isEnabled ?? this.isEnabled,
       repeatDays: repeatDays ?? Set<int>.from(this.repeatDays),
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
@@ -244,7 +271,8 @@ class SleepSessionRecord {
     this.alarmTime,
     this.completedAt,
     this.notes,
-  });
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
 
   final String id;
   final DateTime startedAt;
@@ -252,6 +280,7 @@ class SleepSessionRecord {
   final DateTime? alarmTime;
   final DateTime? completedAt;
   final String? notes;
+  final DateTime updatedAt;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -260,6 +289,7 @@ class SleepSessionRecord {
         'alarmTime': alarmTime?.toIso8601String(),
         'completedAt': completedAt?.toIso8601String(),
         'notes': notes,
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory SleepSessionRecord.fromJson(Map<String, dynamic> json) {
@@ -275,6 +305,42 @@ class SleepSessionRecord {
           ? DateTime.parse(json['completedAt'] as String)
           : null,
       notes: json['notes'] as String?,
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now().toUtc(),
+    );
+  }
+}
+
+/// Pending sync mutation stored in the local outbox.
+class SyncMutation {
+  SyncMutation({
+    required this.entityType,
+    required this.entityId,
+    required this.payload,
+    required this.updatedAt,
+    this.deleted = false,
+  });
+
+  final String entityType;
+  final String entityId;
+  final Map<String, dynamic> payload;
+  final DateTime updatedAt;
+  final bool deleted;
+
+  Map<String, dynamic> toJson() => {
+        'entityType': entityType,
+        'entityId': entityId,
+        'payload': payload,
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
+        'deleted': deleted,
+      };
+
+  factory SyncMutation.fromJson(Map<String, dynamic> json) {
+    return SyncMutation(
+      entityType: json['entityType'] as String,
+      entityId: json['entityId'] as String,
+      payload: Map<String, dynamic>.from(json['payload'] as Map? ?? const {}),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now().toUtc(),
+      deleted: json['deleted'] as bool? ?? false,
     );
   }
 }

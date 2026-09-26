@@ -12,6 +12,7 @@ import 'features/settings/bedtime_settings_screen.dart';
 import 'features/settings/quiet_sound_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/sleep_history_screen.dart';
+import 'features/settings/sync_settings_screen.dart';
 import 'features/spotify/spotify_screen.dart';
 
 class ZyApp extends StatelessWidget {
@@ -31,6 +32,7 @@ class ZyApp extends StatelessWidget {
         '/bedtime': (_) => const BedtimeSettingsScreen(),
         '/quiet-sound': (_) => const QuietSoundScreen(),
         '/history': (_) => const SleepHistoryScreen(),
+        '/sync': (_) => const SyncSettingsScreen(),
       },
     );
   }

@@ -56,13 +56,30 @@ flutter run -d web-server --web-hostname=127.0.0.1 --web-port=7357 --dart-define
 
 Open **http://127.0.0.1:7357** (not `localhost`). The app auto-redirects `localhost` → `127.0.0.1` so Spotify PKCE storage matches the registered redirect URI.
 
-## Admin backend
+## Admin backend + sync
 
 ```powershell
 cd e:\Develop\App\Zy\SRZ\backend
 python -m uvicorn main:app --host 127.0.0.1 --port 8081
 ```
 
+Pass the same origin to Flutter:
+
+```powershell
+flutter run -d chrome --dart-define=BACKEND_BASE_URL=http://127.0.0.1:8081
+```
+
+Offline-first sync (preferences, alarms, sessions, active routine) runs automatically when online. Use **Settings → Sync & install** to sync now, join another device via pairing code, or see Add to Home Screen tips.
+
+## Hosted PWA build
+
+```powershell
+cd e:\Develop\App\Zy\SRZ
+.\scripts\build_web.ps1 -BackendBaseUrl "https://YOUR-API.onrender.com"
+# Optional: -Deploy  (wrangler pages deploy)
+```
+
+Build uses `--pwa-strategy=offline-first`. Deploy `flutter_app/build/web` to Cloudflare Pages.
 ## Feature parity (v0.9)
 
 | Area | Status |

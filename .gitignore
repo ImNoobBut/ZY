@@ -39,3 +39,5 @@ backend/.env
 backend/dist/
 backend/data/
 backend/.venv/
+.neon
+node_modules/

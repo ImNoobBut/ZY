@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,10 +12,36 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final syncSubtitle = !state.sync.online
+        ? 'Offline · pending ${state.sync.pendingCount}'
+        : state.sync.syncing
+            ? 'Syncing…'
+            : (state.sync.lastSyncIso == null
+                ? 'Not synced yet'
+                : 'Last sync ok'
+                    '${state.sync.pendingCount > 0 ? ' · ${state.sync.pendingCount} pending' : ''}');
+
     return NightScaffold(
       title: 'Settings',
       child: ListView(
         children: [
+          ListTile(
+            title: const Text('Sync & install'),
+            subtitle: Text(
+              syncSubtitle,
+              style: const TextStyle(color: AppTheme.secondaryText),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pushNamed('/sync'),
+          ),
+          if (kIsWeb)
+            const ListTile(
+              title: Text('Add to Home Screen'),
+              subtitle: Text(
+                'Safari: Share → Add to Home Screen. Chrome: Install app.',
+                style: TextStyle(color: AppTheme.secondaryText),
+              ),
+            ),
           ListTile(
             title: const Text('Bedtime'),
             subtitle: Text(
@@ -68,7 +95,9 @@ class SettingsScreen extends StatelessWidget {
           ),
           const ListTile(
             title: Text('About'),
-            subtitle: Text('Flutter Android + Web port. Swift iOS app remains separate.'),
+            subtitle: Text(
+              'PWA-ready Flutter web + Android. Offline-first sync when the backend is reachable.',
+            ),
           ),
         ],
       ),

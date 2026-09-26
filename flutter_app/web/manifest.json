@@ -1,13 +1,14 @@
 {
-    "name": "sleeping_routine_for_zy",
-    "short_name": "sleeping_routine_for_zy",
+    "name": "Sleeping Routine for Zy",
+    "short_name": "Zy Sleep",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F1424",
+    "theme_color": "#0F1424",
+    "description": "Calm bedtime routine for Zy — timer, quiet sounds, alarms, and optional sync.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["lifestyle", "health"],
     "icons": [
         {
             "src": "icons/Icon-192.png",

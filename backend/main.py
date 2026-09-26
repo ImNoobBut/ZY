@@ -1,14 +1,14 @@
 """
-Sleeping Routine for Zy — Remote Admin backend (Phase 7).
+Sleeping Routine for Zy — Remote Admin + sync API.
 
-Local demo server with JSON file persistence (swap to PostgreSQL for production).
-Run:  pip install -r requirements.txt && python -m uvicorn main:app --host 127.0.0.1 --port 8081
+Persistence: Postgres when DATABASE_URL is set, else SQLite (backend/data/app.db).
+Run locally:  pip install -r requirements.txt && python main.py
 Dashboard: http://127.0.0.1:8081/
 """
 
 from __future__ import annotations
 
-import json
+import os
 import secrets
 import time
 import uuid
@@ -16,27 +16,53 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 import uvicorn
+
+from db import (
+    Account,
+    AdminToken,
+    Device,
+    DeviceStatusRow,
+    SyncEntity,
+    get_db,
+    init_db,
+    utcnow,
+)
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
-STORE_PATH = APP_DIR / "data" / "store.json"
+TOKEN_TTL_SECONDS = 3600
 
-app = FastAPI(title="Sleeping Routine for Zy — Admin API", version="0.7.1")
+app = FastAPI(title="Sleeping Routine for Zy — Admin + Sync API", version="0.9.0")
 
-# Flutter web (Chrome) runs on another origin/port — allow local demo CORS.
+
+def _cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if not raw:
+        return []
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+_extra_origins = _cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=_extra_origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.pages\.dev",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Pydantic models ---
+
 
 class DeviceStatus(BaseModel):
     batteryLevel: float | None = None
@@ -69,35 +95,27 @@ class PairBody(BaseModel):
     pairingCode: str
 
 
-class DeviceRecord(BaseModel):
-    device_id: str
-    display_name: str
-    access_token: str
-    refresh_token: str
-    pairing_code: str
-    access_expires_at: float
-    status: DeviceStatus | None = None
+class JoinAccountBody(BaseModel):
+    pairingCode: str
+    displayName: str = "Zy linked device"
 
 
-devices_by_id: dict[str, DeviceRecord] = {}
-devices_by_access: dict[str, str] = {}
-devices_by_refresh: dict[str, str] = {}
-devices_by_pairing: dict[str, str] = {}
-admin_tokens: dict[str, str] = {}  # token -> device_id
-
-TOKEN_TTL_SECONDS = 3600
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+class SyncMutation(BaseModel):
+    entityType: str = Field(description="preferences | alarm | session | routine")
+    entityId: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    updatedAt: datetime
+    deleted: bool = False
 
 
-def _new_pairing_code() -> str:
-    return f"{secrets.randbelow(1_000_000):06d}"
+class SyncPushBody(BaseModel):
+    mutations: list[SyncMutation]
+
+
+ALLOWED_ENTITY_TYPES = frozenset({"preferences", "alarm", "session", "routine"})
 
 
 def _normalize_pairing_code(raw: str) -> str:
-    """Accept '1234' or '001234' — always compare as zero-padded 6 digits."""
     digits = "".join(ch for ch in raw.strip() if ch.isdigit())
     if not digits:
         return raw.strip()
@@ -106,130 +124,144 @@ def _normalize_pairing_code(raw: str) -> str:
     return digits.zfill(6)
 
 
-def _issue_tokens(device_id: str) -> tuple[str, str, float]:
+def _new_pairing_code(db: Session) -> str:
+    for _ in range(40):
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        exists = db.scalar(select(Device).where(Device.pairing_code == code))
+        if not exists:
+            return code
+    raise HTTPException(status_code=500, detail="Could not allocate pairing code")
+
+
+def _issue_tokens() -> tuple[str, str, float]:
     access = secrets.token_urlsafe(32)
     refresh = secrets.token_urlsafe(32)
     expires = time.time() + TOKEN_TTL_SECONDS
-    devices_by_access[access] = device_id
-    devices_by_refresh[refresh] = device_id
     return access, refresh, expires
 
 
-def _save_store() -> None:
-    STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "devices": [record.model_dump(mode="json") for record in devices_by_id.values()],
-        "admin_tokens": admin_tokens,
+def _device_auth_payload(device: Device) -> dict[str, Any]:
+    return {
+        "deviceId": device.id,
+        "accountId": device.account_id,
+        "accessToken": device.access_token,
+        "refreshToken": device.refresh_token,
+        "pairingCode": device.pairing_code,
+        "expiresIn": TOKEN_TTL_SECONDS,
     }
-    STORE_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def _load_store() -> None:
-    if not STORE_PATH.exists():
-        return
-    try:
-        payload = json.loads(STORE_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return
-
-    devices_by_id.clear()
-    devices_by_access.clear()
-    devices_by_refresh.clear()
-    devices_by_pairing.clear()
-    admin_tokens.clear()
-
-    for item in payload.get("devices", []):
-        try:
-            record = DeviceRecord.model_validate(item)
-        except Exception:
-            continue
-        devices_by_id[record.device_id] = record
-        devices_by_access[record.access_token] = record.device_id
-        devices_by_refresh[record.refresh_token] = record.device_id
-        devices_by_pairing[record.pairing_code] = record.device_id
-
-    for token, device_id in (payload.get("admin_tokens") or {}).items():
-        if device_id in devices_by_id:
-            admin_tokens[token] = device_id
-
-
-def require_device(authorization: str | None = Header(default=None)) -> DeviceRecord:
+def require_device(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> Device:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.removeprefix("Bearer ").strip()
-    device_id = devices_by_access.get(token)
-    if not device_id:
+    device = db.scalar(select(Device).where(Device.access_token == token))
+    if not device:
         raise HTTPException(status_code=401, detail="Invalid access token")
-    record = devices_by_id[device_id]
-    if record.access_expires_at < time.time():
+    if device.access_expires_at < time.time():
         raise HTTPException(status_code=401, detail="Access token expired")
-    return record
+    return device
 
 
-def require_admin(authorization: str | None = Header(default=None)) -> str:
+def require_admin(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.removeprefix("Bearer ").strip()
-    device_id = admin_tokens.get(token)
-    if not device_id:
+    row = db.get(AdminToken, token)
+    if not row:
         raise HTTPException(status_code=401, detail="Invalid admin token")
-    return device_id
+    return row.device_id
 
 
 @app.on_event("startup")
 def on_startup() -> None:
-    _load_store()
+    init_db()
 
 
 @app.get("/health")
-def health() -> dict[str, Any]:
+def health(db: Session = Depends(get_db)) -> dict[str, Any]:
+    devices = list(db.scalars(select(Device)).all())
+    db_url = (os.environ.get("DATABASE_URL") or "").strip()
+    engine_kind = "postgres" if db_url.startswith(("postgres://", "postgresql://")) else "sqlite"
     return {
         "status": "ok",
-        "devices": len(devices_by_id),
-        "pairingCodes": sorted(devices_by_pairing.keys()),
+        "devices": len(devices),
+        "pairingCodes": sorted(d.pairing_code for d in devices),
+        "database": engine_kind,
     }
 
 
 @app.post("/v1/devices/register")
-def register(body: RegisterBody) -> dict[str, Any]:
+def register(body: RegisterBody, db: Session = Depends(get_db)) -> dict[str, Any]:
+    account_id = str(uuid.uuid4())
     device_id = str(uuid.uuid4())
-    pairing = _new_pairing_code()
-    while pairing in devices_by_pairing:
-        pairing = _new_pairing_code()
-    access, refresh, expires = _issue_tokens(device_id)
-    record = DeviceRecord(
-        device_id=device_id,
+    pairing = _new_pairing_code(db)
+    access, refresh, expires = _issue_tokens()
+    db.add(Account(id=account_id))
+    db.add(
+        Device(
+            id=device_id,
+            account_id=account_id,
+            display_name=body.displayName,
+            access_token=access,
+            refresh_token=refresh,
+            pairing_code=pairing,
+            access_expires_at=expires,
+        )
+    )
+    db.commit()
+    device = db.get(Device, device_id)
+    assert device is not None
+    return _device_auth_payload(device)
+
+
+@app.post("/v1/devices/join")
+def join_account(body: JoinAccountBody, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Create a new device under an existing account (share sync via pairing code)."""
+    code = _normalize_pairing_code(body.pairingCode)
+    owner = db.scalar(select(Device).where(Device.pairing_code == code))
+    if not owner:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Unknown pairing code. Use the 6-digit code from Settings → Sync / Admin "
+                f"(not your PIN). Tried '{code}'."
+            ),
+        )
+    device_id = str(uuid.uuid4())
+    pairing = _new_pairing_code(db)
+    access, refresh, expires = _issue_tokens()
+    device = Device(
+        id=device_id,
+        account_id=owner.account_id,
         display_name=body.displayName,
         access_token=access,
         refresh_token=refresh,
         pairing_code=pairing,
         access_expires_at=expires,
     )
-    devices_by_id[device_id] = record
-    devices_by_pairing[pairing] = device_id
-    _save_store()
-    return {
-        "deviceId": device_id,
-        "accessToken": access,
-        "refreshToken": refresh,
-        "pairingCode": pairing,
-        "expiresIn": TOKEN_TTL_SECONDS,
-    }
+    db.add(device)
+    db.commit()
+    db.refresh(device)
+    return _device_auth_payload(device)
 
 
 @app.post("/v1/devices/refresh")
-def refresh(body: RefreshBody) -> dict[str, Any]:
-    device_id = devices_by_refresh.get(body.refreshToken)
-    if not device_id:
+def refresh(body: RefreshBody, db: Session = Depends(get_db)) -> dict[str, Any]:
+    device = db.scalar(select(Device).where(Device.refresh_token == body.refreshToken))
+    if not device:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    record = devices_by_id[device_id]
-    devices_by_access.pop(record.access_token, None)
-    devices_by_refresh.pop(record.refresh_token, None)
-    access, refresh_token, expires = _issue_tokens(device_id)
-    record.access_token = access
-    record.refresh_token = refresh_token
-    record.access_expires_at = expires
-    _save_store()
+    access, refresh_token, expires = _issue_tokens()
+    device.access_token = access
+    device.refresh_token = refresh_token
+    device.access_expires_at = expires
+    db.commit()
     return {
         "accessToken": access,
         "refreshToken": refresh_token,
@@ -238,19 +270,26 @@ def refresh(body: RefreshBody) -> dict[str, Any]:
 
 
 @app.post("/v1/devices/check-in")
-def check_in(body: CheckInBody, record: DeviceRecord = Depends(require_device)) -> dict[str, bool]:
-    status = body.deviceStatus
-    status.lastCheckIn = _utcnow()
-    record.status = status
-    _save_store()
+def check_in(
+    body: CheckInBody,
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    status = body.deviceStatus.model_copy(update={"lastCheckIn": utcnow()})
+    row = db.get(DeviceStatusRow, device.id)
+    if not row:
+        row = DeviceStatusRow(device_id=device.id)
+        db.add(row)
+    row.set_payload(status.model_dump(mode="json"))
+    db.commit()
     return {"ok": True}
 
 
 @app.post("/v1/admin/pair")
-def admin_pair(body: PairBody) -> dict[str, Any]:
+def admin_pair(body: PairBody, db: Session = Depends(get_db)) -> dict[str, Any]:
     code = _normalize_pairing_code(body.pairingCode)
-    device_id = devices_by_pairing.get(code)
-    if not device_id:
+    device = db.scalar(select(Device).where(Device.pairing_code == code))
+    if not device:
         raise HTTPException(
             status_code=404,
             detail=(
@@ -260,23 +299,122 @@ def admin_pair(body: PairBody) -> dict[str, Any]:
             ),
         )
     token = secrets.token_urlsafe(32)
-    admin_tokens[token] = device_id
-    _save_store()
+    db.add(AdminToken(token=token, device_id=device.id))
+    db.commit()
     return {
         "adminToken": token,
-        "deviceId": device_id,
+        "deviceId": device.id,
+        "accountId": device.account_id,
         "expiresIn": TOKEN_TTL_SECONDS * 24,
     }
 
 
 @app.get("/v1/devices/{device_id}/status")
-def device_status(device_id: str, admin_device_id: str = Depends(require_admin)) -> dict[str, Any]:
+def device_status(
+    device_id: str,
+    admin_device_id: str = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     if device_id != admin_device_id:
-        raise HTTPException(status_code=403, detail="Not authorized for this device")
-    record = devices_by_id.get(device_id)
-    if not record or not record.status:
+        # Allow admin to read any device on the same account
+        admin_device = db.get(Device, admin_device_id)
+        target = db.get(Device, device_id)
+        if not admin_device or not target or admin_device.account_id != target.account_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this device")
+    row = db.get(DeviceStatusRow, device_id)
+    if not row:
         raise HTTPException(status_code=404, detail="No status yet")
-    return {"deviceStatus": record.status.model_dump(mode="json")}
+    return {"deviceStatus": row.get_payload()}
+
+
+def _parse_since(since: str | None) -> datetime | None:
+    if not since:
+        return None
+    try:
+        value = datetime.fromisoformat(since.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid since timestamp") from exc
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
+
+
+@app.get("/v1/sync")
+def sync_pull(
+    since: str | None = Query(default=None),
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    since_dt = _parse_since(since)
+    stmt = select(SyncEntity).where(SyncEntity.account_id == device.account_id)
+    if since_dt is not None:
+        stmt = stmt.where(SyncEntity.updated_at > since_dt)
+    stmt = stmt.order_by(SyncEntity.updated_at.asc())
+    rows = db.scalars(stmt).all()
+    server_time = utcnow()
+    changes = [
+        {
+            "entityType": row.entity_type,
+            "entityId": row.entity_id,
+            "payload": row.get_payload(),
+            "updatedAt": row.updated_at.isoformat(),
+            "deleted": row.deleted,
+            "writerDeviceId": row.writer_device_id,
+        }
+        for row in rows
+    ]
+    return {"serverTime": server_time.isoformat(), "changes": changes}
+
+
+@app.post("/v1/sync")
+def sync_push(
+    body: SyncPushBody,
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    applied = 0
+    rejected = 0
+    for mutation in body.mutations:
+        if mutation.entityType not in ALLOWED_ENTITY_TYPES:
+            rejected += 1
+            continue
+        updated_at = mutation.updatedAt
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+
+        existing = db.scalar(
+            select(SyncEntity).where(
+                SyncEntity.account_id == device.account_id,
+                SyncEntity.entity_type == mutation.entityType,
+                SyncEntity.entity_id == mutation.entityId,
+            )
+        )
+        if existing is not None:
+            # Last-write-wins; tie-break prefers incoming when equal.
+            if existing.updated_at > updated_at:
+                rejected += 1
+                continue
+            if existing.updated_at == updated_at and existing.writer_device_id > device.id:
+                rejected += 1
+                continue
+            existing.set_payload(mutation.payload)
+            existing.updated_at = updated_at
+            existing.deleted = mutation.deleted
+            existing.writer_device_id = device.id
+        else:
+            row = SyncEntity(
+                account_id=device.account_id,
+                entity_type=mutation.entityType,
+                entity_id=mutation.entityId,
+                updated_at=updated_at,
+                deleted=mutation.deleted,
+                writer_device_id=device.id,
+            )
+            row.set_payload(mutation.payload)
+            db.add(row)
+        applied += 1
+    db.commit()
+    return {"ok": True, "applied": applied, "rejected": rejected, "serverTime": utcnow().isoformat()}
 
 
 @app.get("/")
@@ -289,4 +427,6 @@ if STATIC_DIR.exists():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8081, reload=False)
+    port = int(os.environ.get("PORT", "8081"))
+    host = os.environ.get("HOST", "127.0.0.1")
+    uvicorn.run("main:app", host=host, port=port, reload=False)

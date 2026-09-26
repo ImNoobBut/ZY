@@ -1,0 +1,7 @@
+# Cloudflare Pages — build Flutter web elsewhere (CI) or locally, then:
+#   npx wrangler pages deploy flutter_app/build/web --project-name=sleeping-routine-for-zy
+#
+# Or connect the GitHub Action in .github/workflows/deploy-web.yml
+name = "sleeping-routine-for-zy"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "flutter_app/build/web"

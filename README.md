@@ -219,12 +219,15 @@ Guardian browser dashboard  --pair + auth----┘
 
 ## Production Deployment
 
-Not applicable in Phase 1. Later:
+Free PWA + sync stack (see also `backend/README.md`, `scripts/build_web.ps1`):
 
-1. Configure signing, App Store Connect, privacy nutrition labels.
-2. Deploy backend with TLS, secrets management, audit logs.
-3. Ship Spotify credentials via secure config — never in git.
-4. Verify alarms, timer persistence, and Admin check-in on a real iPhone.
+1. **Database** — create a Neon (or Render) Postgres database; set `DATABASE_URL`.
+2. **API** — deploy `backend/` to Render via [`render.yaml`](render.yaml); set `CORS_ORIGINS` to your Pages URL.
+3. **Web app** — build with `.\scripts\build_web.ps1 -BackendBaseUrl https://YOUR-API.onrender.com` and publish `flutter_app/build/web` to Cloudflare Pages (or use `.github/workflows/deploy-web.yml`).
+4. On phones: open the Pages HTTPS URL → **Add to Home Screen**. Settings → **Sync & install** for status and multi-device pairing.
+5. Spotify Client ID via `--dart-define` / CI secrets — never commit secrets.
+
+Native App Store / Play Store shipping remains optional and is out of scope for the free PWA path.
 
 ## Project Structure
 

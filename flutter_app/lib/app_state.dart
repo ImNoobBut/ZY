@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:app_links/app_links.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -14,10 +15,11 @@ import 'core/services/alarm_scheduler.dart';
 import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
 import 'core/services/streak_calculator.dart';
+import 'core/services/sync_service.dart';
 import 'core/storage/local_store.dart';
 import 'core/web/web_oauth.dart';
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState({
     required this.config,
     required this.store,
@@ -25,6 +27,7 @@ class AppState extends ChangeNotifier {
     required this.admin,
     required this.audio,
     required this.alarmScheduler,
+    required this.sync,
   });
 
   final AppConfig config;
@@ -33,6 +36,7 @@ class AppState extends ChangeNotifier {
   final AdminService admin;
   final QuietAudioService audio;
   final AlarmScheduler alarmScheduler;
+  final SyncService sync;
 
   UserPreferences preferences = UserPreferences();
   List<SleepAlarm> alarms = [];
@@ -57,6 +61,7 @@ class AppState extends ChangeNotifier {
       );
 
   Future<void> bootstrap() async {
+    WidgetsBinding.instance.addObserver(this);
     preferences = await store.loadPreferences();
     alarms = await store.loadAlarms();
     sessions = await store.loadSessions();
@@ -65,6 +70,9 @@ class AppState extends ChangeNotifier {
     await admin.restore();
     await alarmScheduler.initialize();
     alarmsPermissionGranted = await alarmScheduler.hasPermission();
+
+    await sync.start(onRemoteApplied: _applyRemoteSync);
+    sync.addListener(_onSyncChanged);
 
     try {
       final completed = await spotify.tryCompleteFromCurrentUri(Uri.base);
@@ -92,7 +100,37 @@ class AppState extends ChangeNotifier {
     if (preferences.remoteMonitoringOptIn) {
       unawaited(checkInIfNeeded());
     }
+    unawaited(sync.syncNow());
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  void _onSyncChanged() => notifyListeners();
+
+  Future<void> _applyRemoteSync({
+    required UserPreferences preferences,
+    required List<SleepAlarm> alarms,
+    required List<SleepSessionRecord> sessions,
+    required SleepRoutine? activeRoutine,
+  }) async {
+    this.preferences = preferences;
+    this.alarms = alarms;
+    this.sessions = sessions;
+    this.activeRoutine = activeRoutine;
+    await alarmScheduler.reconcile(alarms);
+    await _syncBedtimeReminder();
+    _reconcileRoutine();
+    _refreshMusicLabel();
+    notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(sync.syncNow());
+      if (preferences.remoteMonitoringOptIn) {
+        unawaited(checkInIfNeeded());
+      }
+    }
   }
 
   Future<void> _listenForSpotifyDeepLinks() async {
@@ -125,6 +163,9 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    sync.removeListener(_onSyncChanged);
+    sync.disposeService();
     _ticker?.cancel();
     _linkSub?.cancel();
     audio.dispose();
@@ -169,7 +210,9 @@ class AppState extends ChangeNotifier {
     preferences.preferredWakeHour = wakeHour;
     preferences.preferredWakeMinute = wakeMinute;
     preferences.bedtimeReminderEnabled = true;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     if (alarmEnabled && alarms.isEmpty) {
       alarms = [
         SleepAlarm(
@@ -180,6 +223,7 @@ class AppState extends ChangeNotifier {
         ),
       ];
       await store.saveAlarms(alarms);
+      unawaited(sync.enqueueAlarms(alarms));
       await alarmScheduler.reconcile(alarms);
     }
     await _syncBedtimeReminder();
@@ -188,7 +232,9 @@ class AppState extends ChangeNotifier {
 
   Future<void> setDefaultTimerMinutes(int minutes) async {
     preferences.defaultSleepTimerSeconds = minutes.clamp(1, 180) * 60;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     notifyListeners();
   }
 
@@ -206,14 +252,18 @@ class AppState extends ChangeNotifier {
     if (bedtimeReminderEnabled != null) {
       preferences.bedtimeReminderEnabled = bedtimeReminderEnabled;
     }
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     await _syncBedtimeReminder();
     notifyListeners();
   }
 
   Future<void> setQuietSound(QuietSound sound) async {
     preferences.selectedQuietSound = sound;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     _refreshMusicLabel();
     notifyListeners();
   }
@@ -275,6 +325,7 @@ class AppState extends ChangeNotifier {
         alarmId: enabledAlarm?.id,
       );
       await store.saveActiveRoutine(activeRoutine);
+      unawaited(sync.enqueueRoutine(activeRoutine));
       routineState = RoutineState.timerRunning;
       if (preferences.remoteMonitoringOptIn) {
         unawaited(checkInIfNeeded());
@@ -303,9 +354,11 @@ class AppState extends ChangeNotifier {
     );
     await store.appendSession(record);
     sessions = await store.loadSessions();
+    unawaited(sync.enqueueSession(record));
 
     activeRoutine = null;
     await store.saveActiveRoutine(null);
+    unawaited(sync.enqueueRoutine(null));
     routineState = RoutineState.idle;
     _refreshMusicLabel();
     notifyListeners();
@@ -376,8 +429,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveAlarms(List<SleepAlarm> next) async {
-    alarms = next;
+    final previousIds = alarms.map((a) => a.id).toSet();
+    final now = DateTime.now().toUtc();
+    alarms = next.map((a) {
+      a.touch();
+      return a;
+    }).toList();
     await store.saveAlarms(alarms);
+    unawaited(sync.enqueueAlarms(alarms));
+    for (final id in previousIds.difference(alarms.map((a) => a.id).toSet())) {
+      unawaited(sync.enqueueAlarmDeleted(id, now));
+    }
     try {
       await alarmScheduler.reconcile(alarms);
       alarmsPermissionGranted = await alarmScheduler.hasPermission();
@@ -402,7 +464,9 @@ class AppState extends ChangeNotifier {
   Future<void> selectSpotify({required String uri, required String title}) async {
     preferences.selectedSpotifyUri = uri;
     preferences.selectedSpotifyTitle = title;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     _refreshMusicLabel();
     infoMessage = 'Selected "$title" for bedtime.';
     notifyListeners();
@@ -411,7 +475,9 @@ class AppState extends ChangeNotifier {
   Future<void> clearSpotifySelection() async {
     preferences.selectedSpotifyUri = null;
     preferences.selectedSpotifyTitle = null;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     _refreshMusicLabel();
     notifyListeners();
   }
@@ -427,7 +493,9 @@ class AppState extends ChangeNotifier {
   Future<void> setRemoteOptIn(bool enabled) async {
     if (!enabled) {
       preferences.remoteMonitoringOptIn = false;
+      preferences.touch();
       await store.savePreferences(preferences);
+      unawaited(sync.enqueuePreferences(preferences));
       infoMessage = 'Remote monitoring off.';
       errorMessage = null;
       notifyListeners();
@@ -439,12 +507,15 @@ class AppState extends ChangeNotifier {
         await admin.register(displayName: 'Zy Flutter');
       }
       preferences.remoteMonitoringOptIn = true;
+      preferences.touch();
       await store.savePreferences(preferences);
+      unawaited(sync.enqueuePreferences(preferences));
       await checkInIfNeeded();
       errorMessage = null;
       infoMessage = 'Remote monitoring on. Share pairing code ${admin.pairingCode}.';
     } catch (e) {
       preferences.remoteMonitoringOptIn = false;
+      preferences.touch();
       await store.savePreferences(preferences);
       errorMessage =
           'Could not reach Admin backend at ${config.backendBaseUrl}. '
@@ -476,7 +547,9 @@ class AppState extends ChangeNotifier {
     );
     await admin.checkIn(status);
     preferences.lastSuccessfulCheckInIso = status.lastCheckIn.toIso8601String();
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
     notifyListeners();
   }
 
@@ -484,7 +557,18 @@ class AppState extends ChangeNotifier {
     await admin.clear();
     preferences.remoteMonitoringOptIn = false;
     preferences.lastSuccessfulCheckInIso = null;
+    preferences.touch();
     await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
+    notifyListeners();
+  }
+
+  Future<void> syncNow() => sync.syncNow();
+
+  Future<void> joinSyncAccount(String pairingCode) async {
+    await sync.joinWithPairingCode(pairingCode);
+    infoMessage = 'Joined sync account. Pairing code for this device: ${admin.pairingCode}.';
+    errorMessage = sync.lastError;
     notifyListeners();
   }
 

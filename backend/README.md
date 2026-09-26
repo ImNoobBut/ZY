@@ -1,8 +1,15 @@
-# Sleeping Routine for Zy — Remote Admin Backend
+# Sleeping Routine for Zy — Remote Admin + Sync Backend
 
-Phase 7 local/demo API. Production should use PostgreSQL, TLS, and hosted secrets.
+FastAPI service for guardian Remote Admin and offline-first full sync.
 
-## Run on Windows / Mac / Linux
+## Persistence
+
+| Env | Store |
+|-----|--------|
+| `DATABASE_URL` unset | SQLite at `backend/data/app.db` (local demo) |
+| `DATABASE_URL=postgresql://...` | Neon / Render / any Postgres |
+
+## Run locally
 
 ```bash
 cd backend
@@ -19,35 +26,42 @@ python main.py
 
 Open:
 
-- API health: http://127.0.0.1:8080/health
-- Guardian dashboard: http://127.0.0.1:8080/
+- API health: http://127.0.0.1:8081/health
+- Guardian dashboard: http://127.0.0.1:8081/
 
-## iPhone / Simulator config
+## Deploy (Render free + Neon free)
 
-Set in `Config/Secrets.xcconfig` (or Shared):
+1. Create a Neon project and copy the Postgres connection string.
+2. Push this repo and create a Render Web Service from [`render.yaml`](../render.yaml) (Docker context `backend/`).
+3. Set Render env vars:
+   - `DATABASE_URL` — Neon URL (`postgres://` is auto-normalized)
+   - `CORS_ORIGINS` — your Cloudflare Pages origin, e.g. `https://your-app.pages.dev`
+4. Note the HTTPS service URL — that becomes Flutter `BACKEND_BASE_URL`.
 
-```
-BACKEND_BASE_URL = http://127.0.0.1:8080
-```
-
-- **Simulator on same Mac as backend:** `127.0.0.1` works.
-- **Physical iPhone:** use your PC/Mac LAN IP, e.g. `http://192.168.1.20:8080`, and allow local networking / firewall.
-
-The iOS app allows local networking via `NSAllowsLocalNetworking`.
+Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=8081 srz-api`
 
 ## Endpoints
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/v1/devices/register` | none | Register Zy’s phone; returns tokens + pairing code |
+| POST | `/v1/devices/register` | none | New account + device; returns tokens + pairing code |
+| POST | `/v1/devices/join` | none | New device on an existing account (pairing code) |
 | POST | `/v1/devices/refresh` | refresh token body | Rotate access token |
-| POST | `/v1/devices/check-in` | Bearer device access | Upload opted-in `deviceStatus` |
+| POST | `/v1/devices/check-in` | Bearer device | Upload opted-in `deviceStatus` |
 | POST | `/v1/admin/pair` | none | Exchange pairing code for admin token |
-| GET | `/v1/devices/{id}/status` | Bearer admin token | Read latest status |
+| GET | `/v1/devices/{id}/status` | Bearer admin | Read latest status |
+| GET | `/v1/sync?since=` | Bearer device | Pull account sync changes |
+| POST | `/v1/sync` | Bearer device | Push LWW mutations (preferences, alarm, session, routine) |
+
+## Sync model
+
+- Documents are scoped to an **account** (all devices that share a pairing-code join).
+- Entity types: `preferences`, `alarm`, `session`, `routine`.
+- Conflict rule: **last-write-wins** on `updatedAt`, then `writerDeviceId` tie-break.
 
 ## Production notes
 
-- Replace in-memory dicts with PostgreSQL.
-- Terminate TLS at a reverse proxy.
-- Add rate limits, audit logs, and shorter pairing-code TTL.
-- Never trust device ID alone — always require bearer tokens (as implemented).
+- Prefer Neon/Postgres over SQLite on free PaaS (ephemeral disks).
+- Terminate TLS at the platform edge (Render does this).
+- Set `CORS_ORIGINS` to the exact Pages URL(s).
+- Add rate limits and shorter pairing-code TTL when you harden further.
