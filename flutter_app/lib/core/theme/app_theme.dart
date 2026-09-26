@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static const backgroundTop = Color(0xFF0F1424);
   static const backgroundBottom = Color(0xFF1A1830);
+  /// Frosted glass tint for list cards — not for modal sheets (too transparent).
   static const card = Color(0x14FFFFFF);
+  /// Opaque elevated surface for bottom sheets / dialogs.
+  static const sheet = Color(0xFF1E1C32);
+  static const sheetBarrier = Color(0xCC0A0C14);
   static const accent = Color(0xFF8C7AE6);
   static const accentSoft = Color(0xFF668CEB);
   static const primaryText = Color(0xF2FFFFFF);

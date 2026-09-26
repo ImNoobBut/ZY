@@ -12,7 +12,10 @@ class AppConfig {
   final String spotifyRedirectUri;
   final String backendBaseUrl;
 
-  /// Load from `--dart-define` / CI env. No client IDs or prod URLs are baked in.
+  /// Load from `--dart-define` / CI env.
+  ///
+  /// Spotify public client id has a project default (safe for PKCE; not a
+  /// secret). Override with `--dart-define=SPOTIFY_CLIENT_ID=...` when needed.
   ///
   /// Spotify Dashboard must list [spotifyRedirectUri] exactly
   /// (plus the iOS scheme `sleepingroutineforzy://spotify-callback`).
@@ -23,7 +26,7 @@ class AppConfig {
   static AppConfig fromEnvironment() {
     const clientId = String.fromEnvironment(
       'SPOTIFY_CLIENT_ID',
-      defaultValue: '',
+      defaultValue: '8d55ca65ca71439597adb80e67ba2ab3',
     );
     const redirectDefine = String.fromEnvironment(
       'SPOTIFY_REDIRECT_URI',
@@ -44,7 +47,7 @@ class AppConfig {
     if (!kIsWeb) {
       return redirectDefine.isNotEmpty
           ? redirectDefine
-          : 'sleepingroutineforzy://spotify-callback';
+          : 'https://sleeping-routine-for-zy.pages.dev/callback';
     }
 
     final origin = Uri.base.origin;

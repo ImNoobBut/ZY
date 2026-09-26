@@ -35,20 +35,29 @@ class AlarmsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Alarm permission is off',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Text(
+                    state.alarmScheduler.permissionNeedsSystemSettings
+                        ? 'Notifications blocked'
+                        : (state.alarmScheduler.isBestEffortOnly
+                            ? 'Browser notifications off'
+                            : 'Alarm permission is off'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    state.alarmScheduler.isBestEffortOnly
-                        ? 'Enable browser notifications so web reminders can appear. Keep this tab open.'
-                        : 'Enable notifications (and exact alarms on Android) so wake alarms can ring.',
+                    state.alarmScheduler.permissionNeedsSystemSettings
+                        ? state.alarmScheduler.permissionSettingsHint
+                        : (state.alarmScheduler.isBestEffortOnly
+                            ? 'Optional: allow notifications for background banners. '
+                                'In-tab sound still works while this tab stays open — tap Allow alarms.'
+                            : 'Enable notifications (and exact alarms on Android) so wake alarms can ring.'),
                     style: const TextStyle(color: AppTheme.secondaryText),
                   ),
                   const SizedBox(height: 12),
                   PrimaryButton(
-                    label: 'Allow alarms',
+                    label: state.alarmScheduler.permissionNeedsSystemSettings
+                        ? 'Recheck permission'
+                        : 'Allow alarms',
                     onPressed: () => state.requestAlarmPermission(),
                   ),
                 ],
@@ -56,7 +65,9 @@ class AlarmsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
           ],
-          if (state.errorMessage != null && state.errorMessage!.toLowerCase().contains('alarm')) ...[
+          if (state.errorMessage != null &&
+              (state.errorMessage!.toLowerCase().contains('alarm') ||
+                  state.errorMessage!.toLowerCase().contains('notification'))) ...[
             Text(state.errorMessage!, style: const TextStyle(color: AppTheme.destructive)),
             const SizedBox(height: 12),
           ],
@@ -142,7 +153,8 @@ class AlarmsScreen extends StatelessWidget {
     final result = await showModalBottomSheet<SleepAlarm>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.card,
+      backgroundColor: AppTheme.sheet,
+      barrierColor: AppTheme.sheetBarrier,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

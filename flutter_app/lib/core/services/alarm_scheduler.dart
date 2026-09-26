@@ -29,6 +29,14 @@ abstract class AlarmScheduler {
 
   String get limitationCopy;
 
+  /// Permission was refused and the OS/browser will not show a prompt again
+  /// until the user changes site/app settings.
+  bool get permissionNeedsSystemSettings => false;
+
+  /// Short copy when [permissionNeedsSystemSettings] is true (web/Android).
+  String get permissionSettingsHint =>
+      'Open system or browser settings and allow notifications for this app.';
+
   /// Emits when a wake alarm rings while the app is alive (mainly web).
   Stream<SleepAlarm> get onAlarmFired => const Stream.empty();
 

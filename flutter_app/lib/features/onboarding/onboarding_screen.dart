@@ -100,8 +100,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 await state.requestAlarmPermission();
                 if (!mounted) return;
                 final ok = state.alarmsPermissionGranted == true;
+                final hint = !ok && state.alarmScheduler.permissionNeedsSystemSettings
+                    ? state.alarmScheduler.permissionSettingsHint
+                    : (ok
+                        ? 'Alarm permission on.'
+                        : (state.alarmScheduler.isBestEffortOnly
+                            ? 'Notifications off — in-tab ringing still works if you keep this tab open.'
+                            : 'Permission denied — enable later on the Alarms tab or in Settings.'));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(ok ? 'Alarm permission on.' : 'Permission denied — enable later on the Alarms tab or in Settings.')),
+                  SnackBar(content: Text(hint)),
                 );
               },
             ),

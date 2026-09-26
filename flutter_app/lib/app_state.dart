@@ -309,14 +309,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> requestAlarmPermission() async {
     alarmsPermissionGranted = await alarmScheduler.requestPermission();
-    if (alarmsPermissionGranted == true) {
+    // Always re-arm: web rings in-tab even without notification permission.
+    try {
       await alarmScheduler.reconcile(alarms);
       await _syncBedtimeReminder();
+    } catch (_) {}
+    if (alarmsPermissionGranted == true) {
       infoMessage = 'Alarm permission granted.';
       errorMessage = null;
+    } else if (alarmScheduler.isBestEffortOnly) {
+      infoMessage = alarmScheduler.permissionNeedsSystemSettings
+          ? null
+          : 'In-tab alarms still work while this tab stays open.';
+      errorMessage = alarmScheduler.permissionNeedsSystemSettings
+          ? alarmScheduler.permissionSettingsHint
+          : 'Browser notifications are off. In-tab ringing still works if you keep this tab open.';
     } else {
       errorMessage =
-          'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
+          alarmScheduler.permissionNeedsSystemSettings
+              ? alarmScheduler.permissionSettingsHint
+              : 'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
     }
     notifyListeners();
   }

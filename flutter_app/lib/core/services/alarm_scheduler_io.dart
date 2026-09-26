@@ -17,6 +17,7 @@ class MobileAlarmScheduler implements AlarmScheduler {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
+  bool _permissionPermanentlyDenied = false;
 
   static const _channelId = 'zy_wake_alarms';
   static const _channelName = 'Wake alarms';
@@ -28,6 +29,13 @@ class MobileAlarmScheduler implements AlarmScheduler {
   String get limitationCopy =>
       'Wake alarms use exact local notifications when you grant permission. '
       'On Android 12+, also allow exact alarms in system settings if prompted.';
+
+  @override
+  bool get permissionNeedsSystemSettings => _permissionPermanentlyDenied;
+
+  @override
+  String get permissionSettingsHint =>
+      'Notifications are blocked. Open Android Settings → Apps → this app → Notifications, then allow them.';
 
   @override
   Future<void> initialize() async {
@@ -69,6 +77,7 @@ class MobileAlarmScheduler implements AlarmScheduler {
     if (Platform.isAndroid) {
       final notif = await Permission.notification.request();
       notificationsOk = notif.isGranted;
+      _permissionPermanentlyDenied = notif.isPermanentlyDenied;
       // Exact alarms — may open settings on some devices.
       final exact = await Permission.scheduleExactAlarm.request();
       if (!exact.isGranted && !exact.isLimited) {
@@ -79,6 +88,7 @@ class MobileAlarmScheduler implements AlarmScheduler {
           .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(alert: true, badge: true, sound: true);
       notificationsOk = result ?? false;
+      _permissionPermanentlyDenied = !notificationsOk;
     }
     return notificationsOk;
   }
@@ -87,7 +97,9 @@ class MobileAlarmScheduler implements AlarmScheduler {
   Future<bool> hasPermission() async {
     if (kIsWeb) return false;
     if (Platform.isAndroid) {
-      return Permission.notification.isGranted;
+      final status = await Permission.notification.status;
+      _permissionPermanentlyDenied = status.isPermanentlyDenied;
+      return status.isGranted;
     }
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();

@@ -92,7 +92,11 @@ class SettingsScreen extends StatelessWidget {
             subtitle: Text(
               state.alarmsPermissionGranted == true
                   ? 'Granted'
-                  : 'Needed for wake alarms — also on Alarms tab',
+                  : (state.alarmScheduler.isBestEffortOnly
+                      ? (state.alarmScheduler.permissionNeedsSystemSettings
+                          ? 'Blocked in browser site settings'
+                          : 'Optional on web — helps background banners')
+                      : 'Needed for wake alarms — also on Alarms tab'),
               style: const TextStyle(color: AppTheme.secondaryText),
             ),
             trailing: const Icon(Icons.chevron_right),
@@ -132,7 +136,8 @@ class SettingsScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.card,
+      backgroundColor: AppTheme.sheet,
+      barrierColor: AppTheme.sheetBarrier,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
