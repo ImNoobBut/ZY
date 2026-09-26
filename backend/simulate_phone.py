@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 
 BASE = "http://127.0.0.1:8081"
@@ -14,7 +15,10 @@ def req(method: str, path: str, body=None, token=None):
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     with urllib.request.urlopen(request) as resp:
-        return json.load(resp)
+        raw = resp.read()
+        if not raw:
+            return {}
+        return json.loads(raw)
 
 
 def main() -> None:
@@ -57,10 +61,42 @@ def main() -> None:
     s = view["deviceStatus"]
     print("   routineActive:", s["routineActive"])
     print("   preferredBedtime:", s.get("preferredBedtime"))
-    print("   currentStreak:", s.get("currentStreak"))
-    print("   batteryLevel:", s.get("batteryLevel"))
-    print("   spotifyConnected:", s["spotifyConnected"])
     print("   alarmEnabled:", s["alarmEnabled"])
+
+    print("6) Guardian queues setAlarmEnabled(false)")
+    cmd = req(
+        "POST",
+        f"/v1/devices/{reg['deviceId']}/commands",
+        {"type": "setAlarmEnabled", "payload": {"enabled": False}},
+        token=pair["adminToken"],
+    )
+    print("   command id:", cmd["id"][:8] + "...")
+
+    print("7) Phone pulls pending commands")
+    pending = req("GET", "/v1/devices/commands/pending", token=reg["accessToken"])
+    print("   pending:", len(pending["commands"]))
+
+    print("8) Phone acks command")
+    ack = req(
+        "POST",
+        "/v1/devices/commands/ack",
+        {"ids": [cmd["id"]]},
+        token=reg["accessToken"],
+    )
+    print("   acked:", ack["acked"])
+
+    print("9) Guardian logout")
+    req("POST", "/v1/admin/logout", token=pair["adminToken"])
+    try:
+        req(
+            "GET",
+            f"/v1/devices/{reg['deviceId']}/status",
+            token=pair["adminToken"],
+        )
+        raise SystemExit("logout failed: old token still works")
+    except urllib.error.HTTPError as e:
+        print("   old token rejected:", e.code)
+
     print()
     print("PAIRING_CODE=" + reg["pairingCode"])
     print("DASHBOARD=http://127.0.0.1:8081/")

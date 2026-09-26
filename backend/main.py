@@ -28,6 +28,7 @@ import uvicorn
 
 from db import (
     Account,
+    AdminCommand,
     AdminToken,
     Device,
     DeviceStatusRow,
@@ -155,7 +156,25 @@ class SyncPushBody(BaseModel):
     mutations: list[SyncMutation]
 
 
+class AdminCommandBody(BaseModel):
+    type: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class AckCommandsBody(BaseModel):
+    ids: list[str]
+
+
 ALLOWED_ENTITY_TYPES = frozenset({"preferences", "alarm", "session", "routine"})
+ALLOWED_ADMIN_COMMANDS = frozenset(
+    {
+        "setAlarmEnabled",
+        "setBedtime",
+        "startRoutine",
+        "endRoutine",
+        "stopAudio",
+    }
+)
 
 
 def _normalize_email(raw: str) -> str:
@@ -253,7 +272,7 @@ def require_device(
 def require_admin(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
-) -> str:
+) -> AdminToken:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.removeprefix("Bearer ").strip()
@@ -264,7 +283,37 @@ def require_admin(
         db.delete(row)
         db.commit()
         raise HTTPException(status_code=401, detail="Admin token expired")
-    return row.device_id
+    return row
+
+
+def _assert_admin_device_access(db: Session, admin_device_id: str, device_id: str) -> None:
+    if device_id == admin_device_id:
+        return
+    admin_device = db.get(Device, admin_device_id)
+    target = db.get(Device, device_id)
+    if not admin_device or not target or admin_device.account_id != target.account_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this device")
+
+
+def _validate_admin_command(command_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if command_type not in ALLOWED_ADMIN_COMMANDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown command type. Allowed: {', '.join(sorted(ALLOWED_ADMIN_COMMANDS))}",
+        )
+    if command_type == "setAlarmEnabled":
+        if "enabled" not in payload or not isinstance(payload["enabled"], bool):
+            raise HTTPException(status_code=400, detail="setAlarmEnabled requires payload.enabled bool")
+        return {"enabled": payload["enabled"]}
+    if command_type == "setBedtime":
+        hour = payload.get("hour")
+        minute = payload.get("minute")
+        if not isinstance(hour, int) or not isinstance(minute, int):
+            raise HTTPException(status_code=400, detail="setBedtime requires integer hour and minute")
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise HTTPException(status_code=400, detail="setBedtime hour 0-23, minute 0-59")
+        return {"hour": hour, "minute": minute}
+    return {}
 
 
 @app.on_event("startup")
@@ -493,22 +542,108 @@ def admin_pair(
     }
 
 
+@app.post("/v1/admin/logout")
+def admin_logout(
+    admin: AdminToken = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    db.delete(admin)
+    db.commit()
+    return {"ok": True}
+
+
 @app.get("/v1/devices/{device_id}/status")
 def device_status(
     device_id: str,
-    admin_device_id: str = Depends(require_admin),
+    admin: AdminToken = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    if device_id != admin_device_id:
-        # Allow admin to read any device on the same account
-        admin_device = db.get(Device, admin_device_id)
-        target = db.get(Device, device_id)
-        if not admin_device or not target or admin_device.account_id != target.account_id:
-            raise HTTPException(status_code=403, detail="Not authorized for this device")
+    _assert_admin_device_access(db, admin.device_id, device_id)
     row = db.get(DeviceStatusRow, device_id)
     if not row:
         raise HTTPException(status_code=404, detail="No status yet")
     return {"deviceStatus": row.get_payload()}
+
+
+@app.post("/v1/devices/{device_id}/commands")
+def enqueue_admin_command(
+    device_id: str,
+    body: AdminCommandBody,
+    admin: AdminToken = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _assert_admin_device_access(db, admin.device_id, device_id)
+    payload = _validate_admin_command(body.type, body.payload)
+    cmd = AdminCommand(
+        id=str(uuid.uuid4()),
+        device_id=device_id,
+        command_type=body.type,
+    )
+    cmd.set_payload(payload)
+    db.add(cmd)
+    db.commit()
+    return {
+        "id": cmd.id,
+        "type": cmd.command_type,
+        "payload": payload,
+        "createdAt": cmd.created_at.isoformat(),
+    }
+
+
+@app.get("/v1/devices/commands/pending")
+def pending_admin_commands(
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    rows = db.scalars(
+        select(AdminCommand)
+        .where(AdminCommand.device_id == device.id, AdminCommand.acked_at.is_(None))
+        .order_by(AdminCommand.created_at.asc())
+    ).all()
+    return {
+        "commands": [
+            {
+                "id": row.id,
+                "type": row.command_type,
+                "payload": row.get_payload(),
+                "createdAt": row.created_at.isoformat(),
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.post("/v1/devices/commands/ack")
+def ack_admin_commands(
+    body: AckCommandsBody,
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    if not body.ids:
+        return {"ok": True, "acked": 0}
+    now = utcnow()
+    rows = db.scalars(
+        select(AdminCommand).where(
+            AdminCommand.device_id == device.id,
+            AdminCommand.id.in_(body.ids),
+            AdminCommand.acked_at.is_(None),
+        )
+    ).all()
+    for row in rows:
+        row.acked_at = now
+    db.commit()
+    return {"ok": True, "acked": len(rows)}
+
+
+@app.post("/v1/devices/revoke-admin-tokens")
+def revoke_admin_tokens(
+    device: Device = Depends(require_device),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Device-side: wipe all guardian sessions for this device (Disconnect remote)."""
+    db.execute(delete(AdminToken).where(AdminToken.device_id == device.id))
+    db.commit()
+    return {"ok": True}
 
 
 def _parse_since(since: str | None) -> datetime | None:

@@ -33,6 +33,14 @@
 
   <title>Sleeping Routine for Zy</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Avoid white flash on Safari while Flutter boots. */
+    html, body {
+      margin: 0;
+      height: 100%;
+      background-color: #0F1424;
+    }
+  </style>
 </head>
 <body>
   <!--
@@ -43,14 +51,8 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        // Flutter registers its own SW; also register asset cache helper.
-        navigator.serviceWorker.register('sw-assets.js').catch(function () {});
-      });
-    }
-  </script>
+  <!-- Flutter registers its own service worker; do not register a second one
+       (Safari is sensitive to competing workers after deploys). -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

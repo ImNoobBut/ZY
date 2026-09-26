@@ -32,14 +32,17 @@ class WebAlarmScheduler implements AlarmScheduler {
 
   @override
   Future<void> initialize() async {
-    _permissionGranted = html.Notification.permission == 'granted';
+    _permissionGranted = html.Notification.supported &&
+        html.Notification.permission == 'granted';
     // #region agent log
     agentDebugLog(
       hypothesisId: 'A',
       location: 'alarm_scheduler_web.dart:initialize',
       message: 'web alarm init',
       data: {
-        'permission': html.Notification.permission,
+        'permission': html.Notification.supported
+            ? html.Notification.permission
+            : 'unsupported',
         'supported': html.Notification.supported,
         'secureContext': html.window.isSecureContext,
         'visibility': html.document.visibilityState,
@@ -111,7 +114,8 @@ class WebAlarmScheduler implements AlarmScheduler {
 
   @override
   Future<bool> hasPermission() async {
-    _permissionGranted = html.Notification.permission == 'granted';
+    _permissionGranted = html.Notification.supported &&
+        html.Notification.permission == 'granted';
     return _permissionGranted;
   }
 
@@ -138,10 +142,17 @@ class WebAlarmScheduler implements AlarmScheduler {
           hypothesisId: 'A',
           location: 'alarm_scheduler_web.dart:schedule',
           message: 'schedule blocked: no permission',
-          data: {'alarmId': alarm.id, 'permission': html.Notification.permission},
+          data: {
+            'alarmId': alarm.id,
+            'permission': html.Notification.supported
+                ? html.Notification.permission
+                : 'unsupported',
+          },
         );
         // #endregion
-        throw Exception('Browser notification permission is required for web alarms.');
+        // Best-effort: never throw — iPhone Safari often denies notifications,
+        // and a throw from bootstrap would leave a blank white screen.
+        return;
       }
     }
 

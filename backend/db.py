@@ -132,6 +132,28 @@ class DeviceStatusRow(Base):
         self.updated_at = utcnow()
 
 
+class AdminCommand(Base):
+    """Queued remote-admin actions for a device (applied when the app polls)."""
+
+    __tablename__ = "admin_commands"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("devices.id"), index=True)
+    command_type: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def get_payload(self) -> dict[str, Any]:
+        try:
+            return json.loads(self.payload_json)
+        except json.JSONDecodeError:
+            return {}
+
+    def set_payload(self, data: dict[str, Any]) -> None:
+        self.payload_json = json.dumps(data)
+
+
 class SyncEntity(Base):
     """Last-write-wins sync document scoped to an account."""
 

@@ -99,6 +99,65 @@ class AdminService {
     }
   }
 
+  /// Pending remote-admin commands for this device (unacked).
+  Future<List<Map<String, dynamic>>> fetchPendingCommands() async {
+    if (!isRegistered) return [];
+    final res = await http.get(
+      Uri.parse('${config.backendBaseUrl}/v1/devices/commands/pending'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (res.statusCode == 401 && refreshToken != null) {
+      await _refresh();
+      return fetchPendingCommands();
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Fetch commands failed (${res.statusCode})');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = json['commands'] as List<dynamic>? ?? [];
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> ackCommands(List<String> ids) async {
+    if (!isRegistered || ids.isEmpty) return;
+    final res = await http.post(
+      Uri.parse('${config.backendBaseUrl}/v1/devices/commands/ack'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({'ids': ids}),
+    );
+    if (res.statusCode == 401 && refreshToken != null) {
+      await _refresh();
+      return ackCommands(ids);
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Ack commands failed (${res.statusCode})');
+    }
+  }
+
+  /// Best-effort: revoke guardian admin tokens for this device.
+  Future<void> revokeAdminTokens() async {
+    if (!isRegistered) return;
+    try {
+      final res = await http.post(
+        Uri.parse('${config.backendBaseUrl}/v1/devices/revoke-admin-tokens'),
+        headers: {'Authorization': 'Bearer $accessToken'},
+      );
+      if (res.statusCode == 401 && refreshToken != null) {
+        await _refresh();
+        final retry = await http.post(
+          Uri.parse('${config.backendBaseUrl}/v1/devices/revoke-admin-tokens'),
+          headers: {'Authorization': 'Bearer $accessToken'},
+        );
+        if (retry.statusCode < 200 || retry.statusCode >= 300) return;
+      }
+    } catch (_) {
+      // Disconnect must still clear local state if the network is down.
+    }
+  }
+
   Future<void> clear() async {
     deviceId = null;
     accountId = null;

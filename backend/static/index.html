@@ -31,7 +31,7 @@
       margin-bottom: 16px;
     }
     label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-    input {
+    input, input[type="time"] {
       width: 100%;
       padding: 12px 14px;
       border-radius: 12px;
@@ -40,6 +40,7 @@
       color: var(--text);
       font-size: 1.1rem;
       margin-bottom: 12px;
+      color-scheme: dark;
     }
     button {
       width: 100%;
@@ -52,20 +53,43 @@
       font-size: 1rem;
       cursor: pointer;
     }
+    button:disabled { opacity: 0.5; cursor: default; }
     button.secondary { background: transparent; border: 1.5px solid var(--accent); margin-top: 8px; }
-    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    button.danger { background: transparent; border: 1.5px solid #e8b4b8; color: #e8b4b8; margin-top: 8px; }
+    button.mini {
+      width: auto;
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+    button.mini.secondary { margin-top: 0; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .row:last-child { border-bottom: 0; }
+    .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .muted { color: var(--muted); font-size: 0.9rem; }
     .warn { color: #e8b4b8; font-size: 0.85rem; margin-top: 12px; }
     .error { color: #f07a7a; margin-top: 8px; }
     .ok { color: #9ad4b1; margin-top: 8px; }
-    code { font-size: 0.85rem; }
+    .controls { margin-top: 16px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .controls h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 12px; }
+    .control-block { margin-bottom: 14px; }
+    .control-block label { margin-bottom: 8px; }
+    .bedtime-row { display: flex; gap: 8px; align-items: stretch; }
+    .bedtime-row input { margin-bottom: 0; flex: 1; }
+    .bedtime-row button { width: auto; padding: 0 16px; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+    .header-row h1 { margin: 0; }
+    .logout-top { width: auto; padding: 8px 14px; font-size: 0.85rem; margin: 0; }
   </style>
 </head>
 <body>
   <main>
-    <h1>Zy Sleep Admin</h1>
-    <p class="lead">Enter the <strong>6-digit pairing code</strong> from Zy’s app (Settings → Admin → turn on sharing). Do <em>not</em> use your Admin PIN.</p>
+    <div class="header-row">
+      <h1>Zy Sleep Admin</h1>
+      <button class="secondary logout-top" id="logout-top-btn" type="button" hidden>Log out</button>
+    </div>
+    <p class="lead" id="lead">Enter the <strong>6-digit pairing code</strong> from Zy’s app (Settings → Admin → turn on sharing). Do <em>not</em> use your Admin PIN.</p>
 
     <section class="card" id="pair-card">
       <label for="code">Pairing code</label>
@@ -84,8 +108,39 @@
       <div class="row"><span class="muted">Alarm</span><strong id="alarm">—</strong></div>
       <div class="row"><span class="muted">App audio</span><strong id="audio">—</strong></div>
       <div class="row"><span class="muted">Last updated</span><strong id="updated">—</strong></div>
-      <p class="warn">Status may be delayed when the app is not running.</p>
+
+      <div class="controls">
+        <h2>Remote controls</h2>
+        <div class="control-block">
+          <label>Alarm</label>
+          <div class="row-actions">
+            <button class="mini" id="alarm-on-btn" type="button">On</button>
+            <button class="mini secondary" id="alarm-off-btn" type="button">Off</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label for="bedtime-input">Bedtime</label>
+          <div class="bedtime-row">
+            <input id="bedtime-input" type="time" value="22:00" />
+            <button id="bedtime-apply-btn" type="button">Apply</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label>Routine</label>
+          <div class="row-actions">
+            <button class="mini" id="routine-start-btn" type="button">Start</button>
+            <button class="mini secondary" id="routine-end-btn" type="button">End</button>
+          </div>
+        </div>
+        <div class="control-block">
+          <label>App audio</label>
+          <button class="mini secondary" id="audio-stop-btn" type="button" style="width:100%">Stop</button>
+        </div>
+      </div>
+
+      <p class="warn">Commands apply when Zy’s app is open. Status may be delayed when the app is not running.</p>
       <button class="secondary" id="refresh-btn" type="button">Refresh</button>
+      <button class="danger" id="logout-btn" type="button">Log out</button>
       <p id="status-msg" class="ok" hidden></p>
     </section>
   </main>
@@ -95,6 +150,8 @@
 
     const pairCard = document.getElementById("pair-card");
     const statusCard = document.getElementById("status-card");
+    const lead = document.getElementById("lead");
+    const logoutTopBtn = document.getElementById("logout-top-btn");
     const pairMsg = document.getElementById("pair-msg");
     const statusMsg = document.getElementById("status-msg");
 
@@ -102,6 +159,66 @@
       el.hidden = !text;
       el.textContent = text || "";
       el.className = cls || "";
+    }
+
+    function clearSession() {
+      session = null;
+      localStorage.removeItem(storageKey);
+      pairCard.hidden = false;
+      statusCard.hidden = true;
+      lead.hidden = false;
+      logoutTopBtn.hidden = true;
+      document.getElementById("code").value = "";
+    }
+
+    async function logout() {
+      const token = session && session.adminToken;
+      clearSession();
+      show(statusMsg, "", "ok");
+      show(pairMsg, "Logged out.", "ok");
+      if (!token) return;
+      try {
+        await fetch("/v1/admin/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (_) {}
+    }
+
+    function authHeaders() {
+      return { Authorization: `Bearer ${session.adminToken}` };
+    }
+
+    async function sendCommand(type, payload) {
+      if (!session) return;
+      show(statusMsg, "", "ok");
+      try {
+        const res = await fetch(`/v1/devices/${session.deviceId}/commands`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders()
+          },
+          body: JSON.stringify({ type, payload: payload || {} })
+        });
+        if (res.status === 401) {
+          clearSession();
+          show(pairMsg, "Session expired. Pair again.", "error");
+          return;
+        }
+        if (!res.ok) {
+          let detail = "Could not queue command.";
+          try {
+            const err = JSON.parse(await res.text());
+            if (err.detail) detail = typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        show(statusMsg, "Queued — applies when Zy’s app is open", "ok");
+        setTimeout(() => { loadStatus({ quiet: true }); }, 2500);
+      } catch (e) {
+        show(statusMsg, e.message || "Command failed", "error");
+      }
     }
 
     async function pair() {
@@ -129,15 +246,31 @@
       }
     }
 
-    async function loadStatus() {
+    function parseBedtimeLabel(label) {
+      if (!label || typeof label !== "string") return null;
+      const m = label.trim().match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return null;
+      const h = String(Math.min(23, parseInt(m[1], 10))).padStart(2, "0");
+      const min = String(Math.min(59, parseInt(m[2], 10))).padStart(2, "0");
+      return `${h}:${min}`;
+    }
+
+    async function loadStatus(opts) {
       if (!session) return;
       pairCard.hidden = true;
       statusCard.hidden = false;
-      show(statusMsg, "", "ok");
+      lead.hidden = true;
+      logoutTopBtn.hidden = false;
+      if (!opts || !opts.quiet) show(statusMsg, "", "ok");
       try {
         const res = await fetch(`/v1/devices/${session.deviceId}/status`, {
-          headers: { Authorization: `Bearer ${session.adminToken}` }
+          headers: authHeaders()
         });
+        if (res.status === 401) {
+          clearSession();
+          show(pairMsg, "Session expired. Pair again.", "error");
+          return;
+        }
         if (res.status === 404) {
           show(statusMsg, "Paired, but Zy hasn’t checked in yet. Ask them to open the app.", "warn");
           return;
@@ -159,14 +292,38 @@
         document.getElementById("updated").textContent = s.lastCheckIn
           ? new Date(s.lastCheckIn).toLocaleString()
           : "—";
-        show(statusMsg, "Updated", "ok");
+        const bt = parseBedtimeLabel(s.preferredBedtime);
+        if (bt) document.getElementById("bedtime-input").value = bt;
+        if (!opts || !opts.quiet) show(statusMsg, "Updated", "ok");
       } catch (e) {
         show(statusMsg, e.message || "Load failed", "error");
       }
     }
 
     document.getElementById("pair-btn").addEventListener("click", pair);
-    document.getElementById("refresh-btn").addEventListener("click", loadStatus);
+    document.getElementById("refresh-btn").addEventListener("click", () => loadStatus());
+    document.getElementById("logout-btn").addEventListener("click", logout);
+    document.getElementById("logout-top-btn").addEventListener("click", logout);
+    document.getElementById("alarm-on-btn").addEventListener("click", () =>
+      sendCommand("setAlarmEnabled", { enabled: true }));
+    document.getElementById("alarm-off-btn").addEventListener("click", () =>
+      sendCommand("setAlarmEnabled", { enabled: false }));
+    document.getElementById("routine-start-btn").addEventListener("click", () =>
+      sendCommand("startRoutine"));
+    document.getElementById("routine-end-btn").addEventListener("click", () =>
+      sendCommand("endRoutine"));
+    document.getElementById("audio-stop-btn").addEventListener("click", () =>
+      sendCommand("stopAudio"));
+    document.getElementById("bedtime-apply-btn").addEventListener("click", () => {
+      const raw = document.getElementById("bedtime-input").value;
+      if (!raw) {
+        show(statusMsg, "Pick a bedtime first.", "error");
+        return;
+      }
+      const [h, m] = raw.split(":").map((x) => parseInt(x, 10));
+      sendCommand("setBedtime", { hour: h, minute: m });
+    });
+
     if (session) loadStatus();
   </script>
 </body>

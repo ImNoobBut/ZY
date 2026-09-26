@@ -53,9 +53,16 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 | POST | `/v1/devices/refresh` | refresh token body | Rotate access token |
 | POST | `/v1/devices/check-in` | Bearer device | Upload opted-in `deviceStatus` |
 | POST | `/v1/admin/pair` | none | Exchange pairing code for admin token |
+| POST | `/v1/admin/logout` | Bearer admin | Revoke this guardian session |
 | GET | `/v1/devices/{id}/status` | Bearer admin | Read latest status |
+| POST | `/v1/devices/{id}/commands` | Bearer admin | Queue a remote control command |
+| GET | `/v1/devices/commands/pending` | Bearer device | List unacked admin commands |
+| POST | `/v1/devices/commands/ack` | Bearer device | Mark commands applied |
+| POST | `/v1/devices/revoke-admin-tokens` | Bearer device | Wipe all guardian sessions for this device |
 | GET | `/v1/sync?since=` | Bearer device | Pull account sync changes |
 | POST | `/v1/sync` | Bearer device | Push LWW mutations (preferences, alarm, session, routine) |
+
+Allowed admin command types: `setAlarmEnabled`, `setBedtime`, `startRoutine`, `endRoutine`, `stopAudio`. Commands are applied when the phone app polls (while open).
 
 ## Sync model
 
@@ -69,6 +76,6 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 - Terminate TLS at the platform edge (Render does this).
 - Set `CORS_ORIGINS` to the exact Pages URL(s).
 - `/health` is liveness-only — it must never return pairing codes or tokens.
-- Admin dashboard tokens expire after 24h; re-pair to rotate. Auth and pairing routes are rate-limited per client IP.
+- Admin dashboard tokens expire after 24h; use **Log out** or re-pair to revoke. Auth and pairing routes are rate-limited per client IP.
 - Pairing codes are 6-digit secrets: treat them like one-time PINs and do not log them.
 - After deploy, restart once so `ensure_admin_token_expiry_column` adds `expires_at` on existing DBs.

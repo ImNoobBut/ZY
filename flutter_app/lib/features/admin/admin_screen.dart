@@ -47,7 +47,7 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           ZyCard(
             child: const Text(
-              'Only opted-in status is uploaded over HTTPS. Check-ins happen while the app is open — status may be delayed. Not real-time surveillance.',
+              'Only opted-in status is uploaded over HTTPS. While sharing is on, a paired guardian can also change alarm, bedtime, routine, and stop app audio when this app is open. Not real-time surveillance.',
               style: TextStyle(color: AppTheme.secondaryText, height: 1.4),
             ),
           ),
@@ -155,7 +155,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   if (!state.admin.isRegistered) {
                     throw Exception('Turn on sharing first to register.');
                   }
-                  await state.checkInIfNeeded();
+                  await state.pollRemoteAdminAndCheckIn();
                   info = 'Status sent.';
                   error = null;
                 } catch (e) {

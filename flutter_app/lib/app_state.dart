@@ -57,6 +57,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool fadeStarted = false;
 
   Timer? _ticker;
+  Timer? _adminCommandPollTimer;
+  bool _appInForeground = true;
   StreamSubscription<Uri>? _linkSub;
 
   int get currentStreak => StreakCalculator.currentStreak(
@@ -98,15 +100,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await _listenForSpotifyDeepLinks();
     }
 
-    await alarmScheduler.reconcile(alarms);
-    await _syncBedtimeReminder();
+    try {
+      await alarmScheduler.reconcile(alarms);
+      await _syncBedtimeReminder();
+      alarmsPermissionGranted = await alarmScheduler.hasPermission();
+    } catch (e) {
+      // Must not block runApp — web/iOS Safari often denies notifications.
+      alarmsPermissionGranted = false;
+      errorMessage ??= 'Could not schedule alarms: $e';
+    }
 
     _reconcileRoutine();
     _refreshMusicLabel();
     ready = true;
     notifyListeners();
     if (preferences.remoteMonitoringOptIn) {
-      unawaited(checkInIfNeeded());
+      _startAdminCommandPolling();
+      unawaited(pollRemoteAdminAndCheckIn());
     }
     if (isLoggedIn) {
       unawaited(sync.syncNow());
@@ -234,10 +244,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _appInForeground = true;
       unawaited(sync.syncNow());
       if (preferences.remoteMonitoringOptIn) {
-        unawaited(checkInIfNeeded());
+        _startAdminCommandPolling();
+        unawaited(pollRemoteAdminAndCheckIn());
       }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _appInForeground = false;
+      _stopAdminCommandPolling();
     }
   }
 
@@ -275,6 +293,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     sync.removeListener(_onSyncChanged);
     sync.disposeService();
     _ticker?.cancel();
+    _stopAdminCommandPolling();
     _linkSub?.cancel();
     audio.dispose();
     super.dispose();
@@ -678,6 +697,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       preferences.touch();
       await store.savePreferences(preferences);
       unawaited(sync.enqueuePreferences(preferences));
+      _stopAdminCommandPolling();
       infoMessage = 'Remote monitoring off.';
       errorMessage = null;
       notifyListeners();
@@ -692,19 +712,130 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       preferences.touch();
       await store.savePreferences(preferences);
       unawaited(sync.enqueuePreferences(preferences));
-      await checkInIfNeeded();
+      _startAdminCommandPolling();
+      await pollRemoteAdminAndCheckIn();
       errorMessage = null;
       infoMessage = 'Remote monitoring on. Share pairing code ${admin.pairingCode}.';
     } catch (e) {
       preferences.remoteMonitoringOptIn = false;
       preferences.touch();
       await store.savePreferences(preferences);
+      _stopAdminCommandPolling();
       errorMessage =
           'Could not reach the server at ${config.backendBaseUrl}. Check your connection and try again.\n$e';
       infoMessage = null;
       rethrow;
     } finally {
       notifyListeners();
+    }
+  }
+
+  void _startAdminCommandPolling() {
+    _stopAdminCommandPolling();
+    if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
+    _adminCommandPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!_appInForeground) return;
+      unawaited(pollRemoteAdminAndCheckIn());
+    });
+  }
+
+  void _stopAdminCommandPolling() {
+    _adminCommandPollTimer?.cancel();
+    _adminCommandPollTimer = null;
+  }
+
+  /// Pull pending guardian commands, apply them, ack, then check in status.
+  Future<void> pollRemoteAdminAndCheckIn() async {
+    if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
+    try {
+      final commands = await admin.fetchPendingCommands();
+      final acked = <String>[];
+      for (final cmd in commands) {
+        final id = cmd['id'] as String?;
+        if (id == null) continue;
+        try {
+          await _applyAdminCommand(cmd);
+          acked.add(id);
+        } catch (_) {
+          // Leave unacked so a later poll can retry.
+        }
+      }
+      if (acked.isNotEmpty) {
+        await admin.ackCommands(acked);
+      }
+    } catch (_) {
+      // Best-effort; check-in still runs below.
+    }
+    try {
+      await checkInIfNeeded();
+    } catch (_) {}
+  }
+
+  Future<void> _applyAdminCommand(Map<String, dynamic> cmd) async {
+    final type = cmd['type'] as String? ?? '';
+    final payload = Map<String, dynamic>.from(
+      (cmd['payload'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+    switch (type) {
+      case 'setAlarmEnabled':
+        final enabled = payload['enabled'] as bool? ?? false;
+        await _setAlarmEnabledFromRemote(enabled);
+      case 'setBedtime':
+        final hour = (payload['hour'] as num?)?.toInt();
+        final minute = (payload['minute'] as num?)?.toInt();
+        if (hour == null || minute == null) {
+          throw Exception('Invalid bedtime payload');
+        }
+        await updateBedtimePrefs(bedtimeHour: hour, bedtimeMinute: minute);
+      case 'startRoutine':
+        if (routineState == RoutineState.idle) {
+          await startRoutine();
+        }
+      case 'endRoutine':
+        if (routineState != RoutineState.idle) {
+          await endRoutine();
+        }
+      case 'stopAudio':
+        await audio.cancelFade();
+        fadeStarted = false;
+        await audio.stop();
+        _refreshMusicLabel();
+        notifyListeners();
+      default:
+        throw Exception('Unknown admin command: $type');
+    }
+  }
+
+  Future<void> _setAlarmEnabledFromRemote(bool enabled) async {
+    preferences.defaultAlarmEnabled = enabled;
+    preferences.touch();
+    await store.savePreferences(preferences);
+    unawaited(sync.enqueuePreferences(preferences));
+
+    if (enabled) {
+      if (alarms.isEmpty) {
+        await saveAlarms([
+          SleepAlarm(
+            id: const Uuid().v4(),
+            hour: preferences.preferredWakeHour,
+            minute: preferences.preferredWakeMinute,
+            repeatDays: {1, 2, 3, 4, 5},
+            isEnabled: true,
+          ),
+        ]);
+      } else {
+        await saveAlarms(
+          alarms.map((a) => a.copyWith(isEnabled: true)).toList(),
+        );
+      }
+    } else {
+      if (alarms.isNotEmpty) {
+        await saveAlarms(
+          alarms.map((a) => a.copyWith(isEnabled: false)).toList(),
+        );
+      } else {
+        notifyListeners();
+      }
     }
   }
 
@@ -735,6 +866,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> disconnectAdmin() async {
+    await admin.revokeAdminTokens();
+    _stopAdminCommandPolling();
     await admin.clear();
     preferences.remoteMonitoringOptIn = false;
     preferences.lastSuccessfulCheckInIso = null;
