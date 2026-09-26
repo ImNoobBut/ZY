@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_state.dart';
+import '../../core/config/app_config.dart';
+import '../../core/install/install_target.dart';
 import '../../core/theme/app_theme.dart';
 import '../../ui/widgets.dart';
 
@@ -135,22 +138,30 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
           ),
           const Divider(),
           if (kIsWeb) ...[
+            _InstallDownloadsCard(config: state.config),
             const ListTile(
-              title: Text('Install on this phone'),
+              title: Text('Or use as a web app'),
               subtitle: Text(
                 'Android Chrome: menu → Install app / Add to Home screen.\n'
                 'iPhone Safari: Share → Add to Home Screen.\n'
-                'Wake alarms on iOS home-screen apps are best-effort only.',
+                'Native APK/IPA installs are better for real wake alarms.',
                 style: TextStyle(color: AppTheme.secondaryText),
               ),
             ),
           ] else
-            const ListTile(
-              title: Text('Install'),
+            ListTile(
+              title: const Text('Install'),
               subtitle: Text(
-                'Use the hosted PWA URL in Chrome/Safari for Add to Home Screen, '
-                'or keep this native Android build.',
-                style: TextStyle(color: AppTheme.secondaryText),
+                defaultTargetPlatform == TargetPlatform.iOS
+                    ? 'Get updates from ${state.config.iosInstallUrl}'
+                    : 'Get the Android APK from ${state.config.androidApkUrl}',
+                style: const TextStyle(color: AppTheme.secondaryText),
+              ),
+              onTap: () => _openInstallLink(
+                context,
+                defaultTargetPlatform == TargetPlatform.iOS
+                    ? state.config.iosInstallUrl
+                    : state.config.androidApkUrl,
               ),
             ),
           ListTile(
@@ -163,5 +174,101 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openInstallLink(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!context.mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open $url')),
+      );
+    }
+  }
+}
+
+class _InstallDownloadsCard extends StatelessWidget {
+  const _InstallDownloadsCard({required this.config});
+
+  final AppConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = detectInstallTarget();
+    final showAndroid =
+        target == InstallTarget.androidApk || target == InstallTarget.other;
+    final showIos =
+        target == InstallTarget.iosIpa || target == InstallTarget.other;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: ZyCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              target == InstallTarget.androidApk
+                  ? 'Download for Android'
+                  : (target == InstallTarget.iosIpa
+                      ? 'Download for iPhone'
+                      : 'Download the app'),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              target == InstallTarget.androidApk
+                  ? 'Install the Zy Sleep APK for real wake alarms (exact notifications).'
+                  : (target == InstallTarget.iosIpa
+                      ? 'Install the iOS build (TestFlight or IPA). AlarmKit needs the native app.'
+                      : 'Pick Android APK or iOS IPA for your phone.'),
+              style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            if (showAndroid) ...[
+              PrimaryButton(
+                label: 'Download Android APK',
+                onPressed: () => _launch(context, config.androidApkUrl),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                config.androidApkUrl,
+                style: const TextStyle(color: AppTheme.tertiaryText, fontSize: 11),
+              ),
+            ],
+            if (showAndroid && showIos) const SizedBox(height: 12),
+            if (showIos) ...[
+              PrimaryButton(
+                label: 'Download iOS IPA / TestFlight',
+                onPressed: () => _launch(context, config.iosInstallUrl),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                config.iosInstallUrl,
+                style: const TextStyle(color: AppTheme.tertiaryText, fontSize: 11),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'IPA requires a Mac build (Xcode) and Apple signing. Prefer TestFlight for TestFlight links.',
+                style: TextStyle(color: AppTheme.tertiaryText, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launch(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!context.mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open $url')),
+      );
+    }
   }
 }

@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'core/config/app_config.dart';
-import 'core/debug/agent_debug_log.dart';
 import 'core/models/models.dart';
 import 'core/services/admin_service.dart';
 import 'core/services/alarm_scheduler.dart';
@@ -109,22 +108,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       alarmsPermissionGranted = false;
       errorMessage ??= 'Could not schedule alarms: $e';
     }
-
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'E',
-      location: 'app_state.dart:bootstrap',
-      message: 'bootstrap alarm state',
-      data: {
-        'granted': alarmsPermissionGranted,
-        'bestEffort': alarmScheduler.isBestEffortOnly,
-        'needsSettings': alarmScheduler.permissionNeedsSystemSettings,
-        'errorSet': errorMessage != null,
-        'errorIsNotifHint': errorMessage?.contains('Notifications are blocked') == true,
-        'enabledAlarms': alarms.where((a) => a.isEnabled).length,
-      },
-    );
-    // #endregion
 
     _reconcileRoutine();
     _refreshMusicLabel();
@@ -347,31 +330,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           : 'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
       infoMessage = null;
     }
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'A',
-      location: 'app_state.dart:requestAlarmPermission',
-      message: 'permission result wrote messages',
-      data: {
-        'granted': alarmsPermissionGranted,
-        'bestEffort': alarmScheduler.isBestEffortOnly,
-        'needsSettings': alarmScheduler.permissionNeedsSystemSettings,
-        'errorSet': errorMessage != null,
-        'errorPreview': errorMessage == null
-            ? null
-            : (errorMessage!.length > 80
-                ? '${errorMessage!.substring(0, 80)}…'
-                : errorMessage),
-        'infoPreview': infoMessage == null
-            ? null
-            : (infoMessage!.length > 80
-                ? '${infoMessage!.substring(0, 80)}…'
-                : infoMessage),
-        'enabledAlarms': alarms.where((a) => a.isEnabled).length,
-      },
-      runId: 'post-fix',
-    );
-    // #endregion
     notifyListeners();
   }
 
@@ -679,37 +637,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               'Alarms updated. Next: ${DateFormat('EEE HH:mm').format(nextFire.first)}'
               '${alarmScheduler.isBestEffortOnly ? ' (keep this tab open on web)' : ''}';
         }
-        // #region agent log
-        agentDebugLog(
-          hypothesisId: 'E',
-          location: 'app_state.dart:saveAlarms',
-          message: 'alarms saved and reconciled',
-          data: {
-            'enabledCount': enabled.length,
-            'permission': alarmsPermissionGranted,
-            'bestEffort': alarmScheduler.isBestEffortOnly,
-            'nextFire': nextFire.isEmpty ? null : nextFire.first.toIso8601String(),
-            'alarms': enabled
-                .map((a) => {
-                      'id': a.id,
-                      'hm': '${a.hour}:${a.minute}',
-                      'days': a.repeatDays.toList(),
-                      'next': a.nextFireAfter()?.toIso8601String(),
-                    })
-                .toList(),
-          },
-        );
-        // #endregion
       }
     } catch (e) {
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'A',
-        location: 'app_state.dart:saveAlarms',
-        message: 'reconcile failed',
-        data: {'error': '$e'},
-      );
-      // #endregion
       errorMessage = 'Could not schedule alarms: $e';
       alarmsPermissionGranted = await alarmScheduler.hasPermission();
     }

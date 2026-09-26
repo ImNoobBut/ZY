@@ -6,11 +6,24 @@ class AppConfig {
     required this.spotifyClientId,
     required this.spotifyRedirectUri,
     required this.backendBaseUrl,
+    required this.androidApkUrl,
+    required this.iosInstallUrl,
   });
 
   final String spotifyClientId;
   final String spotifyRedirectUri;
   final String backendBaseUrl;
+
+  /// Absolute or site-relative URL for the Android APK (Cloudflare Pages).
+  /// Override: `--dart-define=ANDROID_APK_URL=https://.../downloads/zy-sleep.apk`
+  final String androidApkUrl;
+
+  /// Absolute URL for iOS install (TestFlight / App Store / hosted IPA).
+  /// Override: `--dart-define=IOS_INSTALL_URL=https://testflight.apple.com/join/...`
+  final String iosInstallUrl;
+
+  /// Public Pages origin used when building absolute download links on native.
+  static const pagesOrigin = 'https://sleeping-routine-for-zy.pages.dev';
 
   /// Load from `--dart-define` / CI env.
   ///
@@ -36,11 +49,31 @@ class AppConfig {
       'BACKEND_BASE_URL',
       defaultValue: 'http://localhost:8081',
     );
+    const apkDefine = String.fromEnvironment('ANDROID_APK_URL', defaultValue: '');
+    const iosDefine = String.fromEnvironment('IOS_INSTALL_URL', defaultValue: '');
     return AppConfig(
       spotifyClientId: clientId,
       spotifyRedirectUri: _resolveSpotifyRedirect(redirectDefine),
       backendBaseUrl: backend,
+      androidApkUrl: apkDefine.isNotEmpty
+          ? apkDefine
+          : _defaultDownloadUrl('/downloads/zy-sleep.apk'),
+      iosInstallUrl: iosDefine.isNotEmpty
+          ? iosDefine
+          : _defaultDownloadUrl('/downloads/zy-sleep.ipa'),
     );
+  }
+
+  static String _defaultDownloadUrl(String path) {
+    if (kIsWeb) {
+      final origin = Uri.base.origin;
+      final host = Uri.base.host.toLowerCase();
+      final onLoopback = host == 'localhost' || host == '127.0.0.1';
+      if (!onLoopback && origin.isNotEmpty && origin != 'null') {
+        return '$origin$path';
+      }
+    }
+    return '$pagesOrigin$path';
   }
 
   static String _resolveSpotifyRedirect(String redirectDefine) {

@@ -55,9 +55,22 @@ if [[ ! -f build/web/index.html ]]; then
   echo "Build failed: missing build/web/index.html" >&2
   exit 1
 fi
+
+mkdir -p build/web/downloads
+if [[ -f web/downloads/zy-sleep.apk ]]; then
+  cp -f web/downloads/zy-sleep.apk build/web/downloads/zy-sleep.apk
+  echo "Included Android APK in Pages: /downloads/zy-sleep.apk"
+fi
+if [[ -f web/downloads/zy-sleep.ipa ]]; then
+  cp -f web/downloads/zy-sleep.ipa build/web/downloads/zy-sleep.ipa
+  echo "Included iOS IPA in Pages: /downloads/zy-sleep.ipa"
+fi
+
 echo "Built: $APP/build/web"
 echo "Spotify redirect on Pages uses {origin}/callback automatically."
-
+echo "Downloads (after deploy):"
+echo "  Android: https://${PROJECT_NAME}.pages.dev/downloads/zy-sleep.apk"
+echo "  iOS:     https://${PROJECT_NAME}.pages.dev/downloads/zy-sleep.ipa"
 echo "==> 3/3 Deploy Cloudflare Pages ($PROJECT_NAME / $BRANCH)"
 npx --yes wrangler pages deploy build/web \
   --project-name="$PROJECT_NAME" \

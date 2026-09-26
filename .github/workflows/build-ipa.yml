@@ -1,0 +1,57 @@
+name: Build iOS IPA (macOS)
+
+# Produces an IPA on a Mac runner. Upload the artifact to App Store Connect /
+# TestFlight, or copy to flutter_app/web/downloads/zy-sleep.ipa before web deploy.
+# Direct IPA install on consumer iPhones usually requires TestFlight.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios_install_url:
+        description: "Optional TestFlight/App Store URL baked into the app"
+        required: false
+        type: string
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build IPA
+        working-directory: flutter_app
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          IOS_INSTALL_URL: ${{ inputs.ios_install_url || vars.IOS_INSTALL_URL }}
+        run: |
+          set -euo pipefail
+          flutter pub get
+          cd ios && pod install && cd ..
+          DEFINES=()
+          if [ -n "${BACKEND_BASE_URL:-}" ]; then
+            DEFINES+=("--dart-define=BACKEND_BASE_URL=${BACKEND_BASE_URL}")
+          fi
+          if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
+            DEFINES+=("--dart-define=SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}")
+          fi
+          if [ -n "${IOS_INSTALL_URL:-}" ]; then
+            DEFINES+=("--dart-define=IOS_INSTALL_URL=${IOS_INSTALL_URL}")
+          fi
+          # Requires repo secrets for signing (MATCH / certificates) for CI export.
+          # Without signing secrets this step may only produce an .xcarchive.
+          flutter build ipa --release "${DEFINES[@]}" || flutter build ios --release --no-codesign "${DEFINES[@]}"
+
+      - name: Upload IPA / archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: zy-sleep-ios
+          path: |
+            flutter_app/build/ios/ipa/*.ipa
+            flutter_app/build/ios/archive/*.xcarchive
+          if-no-files-found: warn

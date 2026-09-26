@@ -5,7 +5,6 @@ import 'dart:js' as js;
 import 'dart:js_util' as js_util;
 import 'dart:typed_data';
 
-import '../debug/agent_debug_log.dart';
 import '../models/models.dart';
 import 'alarm_scheduler.dart';
 import 'quiet_sound_factory.dart';
@@ -20,7 +19,6 @@ class WebAlarmScheduler implements AlarmScheduler {
   final Map<String, SleepAlarm> _armed = {};
   final Set<String> _catchUpFired = {};
   bool _permissionGranted = false;
-  bool _audioUnlocked = false;
   html.AudioElement? _ringPlayer;
   html.Element? _overlay;
   StreamSubscription<html.Event>? _visibilitySub;
@@ -97,54 +95,6 @@ class WebAlarmScheduler implements AlarmScheduler {
         unawaited(_releaseWakeLock());
       }
     });
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'A',
-      location: 'alarm_scheduler_web.dart:initialize',
-      message: 'web alarm init',
-      data: {
-        'permission': html.Notification.supported
-            ? html.Notification.permission
-            : 'unsupported',
-        'supported': html.Notification.supported,
-        'secureContext': html.window.isSecureContext,
-        'visibility': html.document.visibilityState,
-        'phoneBrowser': _phoneBrowserKind.name,
-      },
-      runId: 'post-fix',
-    );
-    // Debug-only: arm fire path in N seconds from the console / CDP.
-    js.context['__agentArmAlarmInSeconds'] = (num seconds) {
-      const id = '__agent_debug';
-      _timers.remove(id)?.cancel();
-      final alarm = SleepAlarm(
-        id: id,
-        hour: 0,
-        minute: 0,
-        label: 'Debug wake',
-        isEnabled: true,
-      );
-      final delay = Duration(milliseconds: (seconds * 1000).round());
-      agentDebugLog(
-        hypothesisId: 'B',
-        location: 'alarm_scheduler_web.dart:__agentArmAlarmInSeconds',
-        message: 'debug timer armed',
-        data: {
-          'seconds': seconds,
-          'delayMs': delay.inMilliseconds,
-          'permission': html.Notification.permission,
-          'audioUnlocked': _audioUnlocked,
-        },
-        runId: 'phone-fix',
-      );
-      _timers[id] = Timer(delay, () => _onFire(alarm, rearm: false));
-      return true;
-    };
-    js.context['__agentUnlockAudio'] = () {
-      unawaited(_unlockAudio());
-      return _audioUnlocked;
-    };
-    // #endregion
   }
 
   void _syncPermissionFromBrowser() {
@@ -155,47 +105,16 @@ class WebAlarmScheduler implements AlarmScheduler {
   @override
   Future<bool> requestPermission() async {
     if (!html.Notification.supported) {
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'A',
-        location: 'alarm_scheduler_web.dart:requestPermission',
-        message: 'Notification API unsupported',
-        data: {'supported': false},
-        runId: 'phone-fix',
-      );
-      // #endregion
       return false;
     }
     // Already denied: browsers will not show a prompt; avoid a no-op call.
     if (html.Notification.permission == 'denied') {
       _permissionGranted = false;
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'A',
-        location: 'alarm_scheduler_web.dart:requestPermission',
-        message: 'permission already denied — needs site settings',
-        data: {'result': 'denied', 'needsSettings': true},
-        runId: 'phone-fix',
-      );
-      // #endregion
       return false;
     }
     final result = await html.Notification.requestPermission();
     _permissionGranted = result == 'granted';
     await _unlockAudio();
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'A',
-      location: 'alarm_scheduler_web.dart:requestPermission',
-      message: 'permission request result',
-      data: {
-        'result': result,
-        'granted': _permissionGranted,
-        'audioUnlocked': _audioUnlocked,
-      },
-      runId: 'phone-fix',
-    );
-    // #endregion
     return _permissionGranted;
   }
 
@@ -210,15 +129,6 @@ class WebAlarmScheduler implements AlarmScheduler {
     await cancel(alarm.id);
     if (!alarm.isEnabled) {
       _armed.remove(alarm.id);
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'B',
-        location: 'alarm_scheduler_web.dart:schedule',
-        message: 'skip disabled alarm',
-        data: {'alarmId': alarm.id},
-        runId: 'phone-fix',
-      );
-      // #endregion
       await _updateWakeLock();
       return;
     }
@@ -238,62 +148,12 @@ class WebAlarmScheduler implements AlarmScheduler {
     _timers.remove(current.id)?.cancel();
     final next = current.nextFireAfter();
     if (next == null) {
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'B',
-        location: 'alarm_scheduler_web.dart:arm',
-        message: 'nextFireAfter null',
-        data: {
-          'alarmId': current.id,
-          'enabled': current.isEnabled,
-          'repeatDays': current.repeatDays.toList(),
-        },
-        runId: 'phone-fix',
-      );
-      // #endregion
       return;
     }
     final delay = next.difference(DateTime.now());
     if (delay.isNegative) {
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'B',
-        location: 'alarm_scheduler_web.dart:arm',
-        message: 'negative delay skipped',
-        data: {
-          'alarmId': current.id,
-          'next': next.toIso8601String(),
-          'delayMs': delay.inMilliseconds,
-        },
-        runId: 'phone-fix',
-      );
-      // #endregion
       return;
     }
-
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'B',
-      location: 'alarm_scheduler_web.dart:arm',
-      message: 'timer armed',
-      data: {
-        'alarmId': current.id,
-        'label': current.label,
-        'hour': current.hour,
-        'minute': current.minute,
-        'repeatDays': current.repeatDays.toList(),
-        'next': next.toIso8601String(),
-        'delayMs': delay.inMilliseconds,
-        'permission': html.Notification.supported
-            ? html.Notification.permission
-            : 'unsupported',
-        'activeTimers': _timers.length,
-        'audioUnlocked': _audioUnlocked,
-        'notifOptional': true,
-      },
-      runId: 'phone-fix',
-    );
-    // #endregion
 
     _timers[current.id] = Timer(delay, () {
       _onFire(current, rearm: true);
@@ -302,31 +162,11 @@ class WebAlarmScheduler implements AlarmScheduler {
 
   Future<void> _onBecameVisible() async {
     _syncPermissionFromBrowser();
-    final visibility = html.document.visibilityState;
     // Re-arm after mobile Chrome freezes background timers.
     // Also catch up if we missed a fire while the tab was frozen/backgrounded.
     for (final alarm in _armed.values.toList()) {
       if (!alarm.isEnabled) continue;
       final missed = _missedSlotWithinGrace(alarm);
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H1',
-        location: 'alarm_scheduler_web.dart:_onBecameVisible',
-        message: 'visibility resume check',
-        data: {
-          'alarmId': alarm.id,
-          'hm': '${alarm.hour}:${alarm.minute}',
-          'visibility': visibility,
-          'permission': html.Notification.supported
-              ? html.Notification.permission
-              : 'unsupported',
-          'missedSlot': missed?.toIso8601String(),
-          'next': alarm.nextFireAfter()?.toIso8601String(),
-          'hadTimer': _timers.containsKey(alarm.id),
-        },
-        runId: 'miss-probe',
-      );
-      // #endregion
       if (missed != null) {
         _onFire(alarm, rearm: true);
       } else {
@@ -398,9 +238,8 @@ class WebAlarmScheduler implements AlarmScheduler {
       await player.play();
       player.pause();
       player.currentTime = 0;
-      _audioUnlocked = true;
     } catch (_) {
-      _audioUnlocked = false;
+      // Autoplay unlock is best-effort until a later user gesture.
     }
   }
 
@@ -417,10 +256,6 @@ class WebAlarmScheduler implements AlarmScheduler {
     SleepAlarm current, {
     required bool rearm,
   }) {
-    final visibility = html.document.visibilityState;
-    var notifOk = false;
-    String? notifError;
-
     _syncPermissionFromBrowser();
     if (_permissionGranted) {
       try {
@@ -428,54 +263,21 @@ class WebAlarmScheduler implements AlarmScheduler {
           current.label,
           body: 'Time to wake up. (Web reminder — keep this tab open on phones)',
         );
-        notifOk = true;
-      } catch (e) {
-        notifError = '$e';
+      } catch (_) {
+        // Notification may fail; in-page ring/overlay is the reliable path.
       }
     }
 
-    // Fire-and-await ring so logs reflect real play/overlay outcome.
     () async {
-      var soundPlayed = false;
-      String? soundError;
-      var overlayShown = false;
       try {
         await _startRinging(current.label);
-        soundPlayed = _ringPlayer != null;
-        overlayShown = _overlay != null;
-      } catch (e) {
-        soundError = '$e';
-        overlayShown = _overlay != null;
+      } catch (_) {
+        // Overlay may still be visible as fallback.
       }
 
       if (!_firedController.isClosed) {
         _firedController.add(current);
       }
-
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H2',
-        location: 'alarm_scheduler_web.dart:Timer.fire',
-        message: 'alarm timer fired',
-        data: {
-          'alarmId': current.id,
-          'label': current.label,
-          'notifOk': notifOk,
-          'notifError': notifError,
-          'permission': html.Notification.supported
-              ? html.Notification.permission
-              : 'unsupported',
-          'visibility': visibility,
-          'soundPlayed': soundPlayed,
-          'soundError': soundError,
-          'overlayShown': overlayShown,
-          'audioUnlocked': _audioUnlocked,
-          'hasSoundPath': true,
-          'silentHint': 'phone may be in silent/vibrate — overlay should still show',
-        },
-        runId: 'miss-probe',
-      );
-      // #endregion
     }();
 
     if (rearm && current.repeatDays.isNotEmpty && current.isEnabled) {
@@ -526,18 +328,8 @@ class WebAlarmScheduler implements AlarmScheduler {
     _ringPlayer = player;
     try {
       await player.play();
-    } catch (e) {
+    } catch (_) {
       // Autoplay may still block after long idle; overlay remains the fallback.
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'D',
-        location: 'alarm_scheduler_web.dart:_startRinging',
-        message: 'audio play rejected',
-        data: {'error': '$e', 'audioUnlocked': _audioUnlocked},
-        runId: 'phone-fix',
-      );
-      // #endregion
-      rethrow;
     }
   }
 
@@ -558,22 +350,6 @@ class WebAlarmScheduler implements AlarmScheduler {
 
   @override
   Future<void> reconcile(List<SleepAlarm> alarms) async {
-    // #region agent log
-    agentDebugLog(
-      hypothesisId: 'E',
-      location: 'alarm_scheduler_web.dart:reconcile',
-      message: 'reconcile start',
-      data: {
-        'count': alarms.length,
-        'enabled': alarms.where((a) => a.isEnabled).length,
-        'priorTimers': _timers.keys.toList(),
-        'permission': html.Notification.supported
-            ? html.Notification.permission
-            : 'unsupported',
-      },
-      runId: 'phone-fix',
-    );
-    // #endregion
     final keep = alarms.map((a) => a.id).toSet();
     for (final id in _timers.keys.toList()) {
       if (!keep.contains(id)) {
@@ -583,24 +359,6 @@ class WebAlarmScheduler implements AlarmScheduler {
     for (final alarm in alarms) {
       if (alarm.isEnabled) {
         final missed = _missedSlotWithinGrace(alarm);
-        // #region agent log
-        agentDebugLog(
-          hypothesisId: 'H1',
-          location: 'alarm_scheduler_web.dart:reconcile',
-          message: 'reconcile enabled alarm',
-          data: {
-            'alarmId': alarm.id,
-            'hm': '${alarm.hour}:${alarm.minute}',
-            'next': alarm.nextFireAfter()?.toIso8601String(),
-            'missedSlot': missed?.toIso8601String(),
-            'permission': html.Notification.supported
-                ? html.Notification.permission
-                : 'unsupported',
-            'visibility': html.document.visibilityState,
-          },
-          runId: 'miss-probe',
-        );
-        // #endregion
         if (missed != null) {
           _armed[alarm.id] = alarm;
           _onFire(alarm, rearm: true);

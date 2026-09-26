@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
-import '../../core/debug/agent_debug_log.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/util/greeting.dart';
@@ -16,36 +15,6 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    // #region agent log
-    if (state.errorMessage != null || state.infoMessage != null) {
-      agentDebugLog(
-        hypothesisId: 'B',
-        location: 'home_screen.dart:build',
-        message: 'Home message state',
-        data: {
-          'errorSet': state.errorMessage != null,
-          'infoSet': state.infoMessage != null,
-          'errorIsNotifBlockedHint':
-              state.errorMessage?.contains('Notifications are blocked') == true ||
-              state.errorMessage?.contains('Chrome blocked') == true ||
-              state.errorMessage?.contains('Safari blocked') == true,
-          'bestEffort': state.alarmScheduler.isBestEffortOnly,
-          'granted': state.alarmsPermissionGranted,
-          'errorPreview': state.errorMessage == null
-              ? null
-              : (state.errorMessage!.length > 80
-                  ? '${state.errorMessage!.substring(0, 80)}…'
-                  : state.errorMessage),
-          'infoPreview': state.infoMessage == null
-              ? null
-              : (state.infoMessage!.length > 80
-                  ? '${state.infoMessage!.substring(0, 80)}…'
-                  : state.infoMessage),
-        },
-        runId: 'post-fix',
-      );
-    }
-    // #endregion
     final active = state.routineState == RoutineState.timerRunning;
     final remaining = state.remaining();
     final alarm = (() {

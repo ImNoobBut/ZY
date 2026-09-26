@@ -7,7 +7,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../debug/agent_debug_log.dart';
 import '../models/models.dart';
 import 'alarm_scheduler.dart';
 
@@ -20,7 +19,7 @@ class MobileAlarmScheduler implements AlarmScheduler {
   bool _permissionPermanentlyDenied = false;
   bool _exactAlarmDenied = false;
 
-  static const _channelId = 'zy_wake_alarms';
+  static const _channelId = 'zy_wake_alarms_v2';
   static const _channelName = 'Wake alarms';
 
   @override
@@ -59,6 +58,12 @@ class MobileAlarmScheduler implements AlarmScheduler {
           AndroidFlutterLocalNotificationsPlugin>();
 
   @override
+  Stream<SleepAlarm> get onAlarmFired => const Stream.empty();
+
+  @override
+  Future<void> dismissRinging() async {}
+
+  @override
   Future<void> initialize() async {
     if (_ready) return;
     tzdata.initializeTimeZones();
@@ -82,6 +87,9 @@ class MobileAlarmScheduler implements AlarmScheduler {
         description: 'Wake alarms for Sleeping Routine for Zy',
         importance: Importance.max,
         playSound: true,
+        enableVibration: true,
+        // Alarm stream — more likely to alert even when phone is on vibrate.
+        audioAttributesUsage: AudioAttributesUsage.alarm,
       ),
     );
     _ready = true;
@@ -104,23 +112,6 @@ class MobileAlarmScheduler implements AlarmScheduler {
       final canExact = await _android?.canScheduleExactNotifications();
       exactOk = canExact ?? true;
       _exactAlarmDenied = !exactOk;
-
-      final exactStatus = await Permission.scheduleExactAlarm.status;
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H5',
-        location: 'alarm_scheduler_io.dart:requestPermission',
-        message: 'android permission result',
-        data: {
-          'notification': notif.toString(),
-          'exactStatus': exactStatus.toString(),
-          'canScheduleExact': canExact,
-          'exactOk': exactOk,
-          'notifOk': notificationsOk,
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
 
       if (!exactOk) {
         // Fall back to opening app settings so user can enable Alarms & reminders.
@@ -145,20 +136,6 @@ class MobileAlarmScheduler implements AlarmScheduler {
       final canExact = await _android?.canScheduleExactNotifications();
       _permissionPermanentlyDenied = status.isPermanentlyDenied;
       _exactAlarmDenied = !(canExact ?? true);
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H5',
-        location: 'alarm_scheduler_io.dart:hasPermission',
-        message: 'android permission status',
-        data: {
-          'notification': status.toString(),
-          'notifGranted': status.isGranted,
-          'canScheduleExact': canExact,
-          'exactDenied': _exactAlarmDenied,
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
       return status.isGranted && !_exactAlarmDenied;
     }
     final ios = _plugin.resolvePlatformSpecificImplementation<
@@ -176,20 +153,6 @@ class MobileAlarmScheduler implements AlarmScheduler {
     final hasPerm = await hasPermission();
     if (!hasPerm) {
       final granted = await requestPermission();
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'F',
-        location: 'alarm_scheduler_io.dart:schedule',
-        message: 'permission gate',
-        data: {
-          'hadPerm': hasPerm,
-          'granted': granted,
-          'alarmId': alarm.id,
-          'exactDenied': _exactAlarmDenied,
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
       if (!granted) {
         throw Exception(
           _exactAlarmDenied
@@ -217,24 +180,7 @@ class MobileAlarmScheduler implements AlarmScheduler {
       ),
     );
 
-    try {
-      await _scheduleAlarmNotifications(alarm, details);
-    } catch (e) {
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H5',
-        location: 'alarm_scheduler_io.dart:schedule',
-        message: 'zonedSchedule failed',
-        data: {
-          'alarmId': alarm.id,
-          'error': '$e',
-          'exactDenied': _exactAlarmDenied,
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
-      rethrow;
-    }
+    await _scheduleAlarmNotifications(alarm, details);
   }
 
   Future<void> _scheduleAlarmNotifications(
@@ -244,21 +190,6 @@ class MobileAlarmScheduler implements AlarmScheduler {
     if (alarm.repeatDays.isEmpty) {
       final next = alarm.nextFireAfter();
       final when = _toTz(next!);
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H4',
-        location: 'alarm_scheduler_io.dart:schedule',
-        message: 'zonedSchedule once',
-        data: {
-          'alarmId': alarm.id,
-          'nextLocal': next.toIso8601String(),
-          'whenTz': when.toIso8601String(),
-          'tz': tz.local.name,
-          'notifId': _notifId(alarm.id),
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
       await _plugin.zonedSchedule(
         _notifId(alarm.id),
         alarm.label,
@@ -275,20 +206,6 @@ class MobileAlarmScheduler implements AlarmScheduler {
     for (final weekday in alarm.repeatDays) {
       // Dart DateTime.weekday: Mon=1 … Sun=7 (matches SleepAlarm.repeatDays).
       final when = _nextInstanceOfWeekday(alarm.hour, alarm.minute, weekday);
-      // #region agent log
-      agentDebugLog(
-        hypothesisId: 'H4',
-        location: 'alarm_scheduler_io.dart:schedule',
-        message: 'zonedSchedule weekday',
-        data: {
-          'alarmId': alarm.id,
-          'weekday': weekday,
-          'whenTz': when.toIso8601String(),
-          'notifId': _notifId(alarm.id, weekday),
-        },
-        runId: 'native-probe',
-      );
-      // #endregion
       await _plugin.zonedSchedule(
         _notifId(alarm.id, weekday),
         alarm.label,

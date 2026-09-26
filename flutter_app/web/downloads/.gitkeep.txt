@@ -1,0 +1,3 @@
+# Placeholder so `downloads/` is published. Replace with real binaries after build.
+# Android: zy-sleep.apk
+# iOS: zy-sleep.ipa

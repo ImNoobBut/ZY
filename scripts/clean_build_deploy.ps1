@@ -93,8 +93,46 @@ try {
     if (-not (Test-Path (Join-Path $webOut "index.html"))) {
         throw "Build failed: missing $webOut\index.html"
     }
+
+    # Stage native installers into the Pages output when present.
+    # Cloudflare Pages rejects files > 25 MiB — skip oversized binaries.
+    $webDownloads = Join-Path $webOut "downloads"
+    New-Item -ItemType Directory -Force -Path $webDownloads | Out-Null
+    $maxPagesBytes = 25MB
+    $stagedApk = Join-Path $app "web\downloads\zy-sleep.apk"
+    $stagedIpa = Join-Path $app "web\downloads\zy-sleep.ipa"
+    if (Test-Path $stagedApk) {
+        $len = (Get-Item $stagedApk).Length
+        if ($len -le $maxPagesBytes) {
+            Copy-Item -Force $stagedApk (Join-Path $webDownloads "zy-sleep.apk")
+            Write-Host "Included Android APK in Pages: /downloads/zy-sleep.apk ($([math]::Round($len/1MB,1)) MiB)"
+        }
+        else {
+            Write-Host "Skipped APK for Pages (size $([math]::Round($len/1MB,1)) MiB > 25 MiB). Use split-per-abi or GitHub Releases / R2." -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "No staged APK (run scripts\\build_apk.ps1 first to publish one)."
+    }
+    if (Test-Path $stagedIpa) {
+        $len = (Get-Item $stagedIpa).Length
+        if ($len -le $maxPagesBytes) {
+            Copy-Item -Force $stagedIpa (Join-Path $webDownloads "zy-sleep.ipa")
+            Write-Host "Included iOS IPA in Pages: /downloads/zy-sleep.ipa"
+        }
+        else {
+            Write-Host "Skipped IPA for Pages (size $([math]::Round($len/1MB,1)) MiB > 25 MiB). Prefer TestFlight (IOS_INSTALL_URL)." -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "No staged IPA (run scripts/build_ipa.sh on a Mac, or set IOS_INSTALL_URL to TestFlight)."
+    }
+
     Write-Host "Built: $webOut"
     Write-Host "Spotify redirect on Pages uses {origin}/callback automatically."
+    Write-Host "Downloads (after deploy):"
+    Write-Host "  Android: https://$ProjectName.pages.dev/downloads/zy-sleep.apk"
+    Write-Host "  iOS:     https://$ProjectName.pages.dev/downloads/zy-sleep.ipa"
 
     if ($SkipDeploy) {
         Step "3/3 Deploy (skipped)"
