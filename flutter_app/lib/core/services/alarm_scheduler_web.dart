@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import '../models/models.dart';
 import 'alarm_scheduler.dart';
+import 'alarm_sound_factory.dart';
 import 'quiet_sound_factory.dart';
 
 /// Best-effort browser reminders while the tab stays open.
@@ -270,7 +271,7 @@ class WebAlarmScheduler implements AlarmScheduler {
 
     () async {
       try {
-        await _startRinging(current.label);
+        await _startRinging(current);
       } catch (_) {
         // Overlay may still be visible as fallback.
       }
@@ -289,7 +290,7 @@ class WebAlarmScheduler implements AlarmScheduler {
     }
   }
 
-  Future<void> _startRinging(String label) async {
+  Future<void> _startRinging(SleepAlarm alarm) async {
     await dismissRinging();
 
     final overlay = html.DivElement()
@@ -302,7 +303,7 @@ class WebAlarmScheduler implements AlarmScheduler {
       ''';
     final card = html.DivElement()..style.cssText = 'max-width:420px;padding:28px;';
     card.append(html.HeadingElement.h1()
-      ..text = label
+      ..text = alarm.label
       ..style.cssText = 'margin:0 0 8px;font-size:28px;');
     card.append(html.ParagraphElement()
       ..text = 'Alarm is ringing. Dismiss to stop the sound.'
@@ -321,10 +322,10 @@ class WebAlarmScheduler implements AlarmScheduler {
     html.document.body?.append(overlay);
     _overlay = overlay;
 
-    final wav = QuietSoundFactory.makeAlarmWav();
+    final wav = AlarmSoundFactory.makeWav(alarm.sound);
     final player = _audioFromWav(wav)
       ..loop = true
-      ..volume = 1.0;
+      ..volume = AlarmSoundFactory.maxVolume;
     _ringPlayer = player;
     try {
       await player.play();

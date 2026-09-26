@@ -102,13 +102,16 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
         children: [
           ZyCard(
             child: Text(
-              kIsWeb
-                  ? 'Redirect URI for this site: ${state.config.spotifyRedirectUri}\n'
-                      'Add that exact URL in the Spotify Developer Dashboard → Redirect URIs.\n\n'
-                      'After login you return to /callback; the app exchanges the code and clears it from the address bar.\n\n'
-                      'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.'
-                  : 'Android uses sleepingroutineforzy://spotify-callback — register that in Spotify Dashboard.\n\n'
-                      'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.',
+              [
+                'Redirect URI: ${state.config.spotifyRedirectUri}',
+                'Add that exact URL in the Spotify Developer Dashboard → Redirect URIs.',
+                '',
+                kIsWeb
+                    ? 'After login you return to /callback; the app exchanges the code and clears it from the address bar.'
+                    : 'After login, Android App Links / iOS Universal Links return into this app to finish OAuth.',
+                '',
+                'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.',
+              ].join('\n'),
               style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
             ),
           ),

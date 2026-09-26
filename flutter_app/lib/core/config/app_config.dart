@@ -30,8 +30,9 @@ class AppConfig {
   /// Spotify public client id has a project default (safe for PKCE; not a
   /// secret). Override with `--dart-define=SPOTIFY_CLIENT_ID=...` when needed.
   ///
-  /// Spotify Dashboard must list [spotifyRedirectUri] exactly
-  /// (plus the iOS scheme `sleepingroutineforzy://spotify-callback`).
+  /// Spotify Dashboard must list [spotifyRedirectUri] exactly.
+  /// Native default: `https://sleeping-routine-for-zy.pages.dev/callback`
+  /// (Android App Links / iOS Universal Links).
   ///
   /// On web, redirect is always `{current page origin}/callback` when the
   /// app is not on loopback. That prevents a stale local dart-define from

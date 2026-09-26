@@ -39,18 +39,19 @@ On first run, grant **notifications** and **exact alarms** when prompted (Onboar
 
 ## Spotify redirect URIs
 
-Register **all** of these in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → Redirect URIs:
+Register these in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → Redirect URIs:
 
 | Client | Redirect URI |
 |--------|----------------|
-| iOS / Android | `sleepingroutineforzy://spotify-callback` |
+| iOS / Android (production) | `https://sleeping-routine-for-zy.pages.dev/callback` |
 | Flutter web (local) | `http://127.0.0.1:7357/callback` |
-| Flutter web (Cloudflare Pages) | `https://700ff232.sleeping-routine-for-zy.pages.dev/callback` |
-| Flutter web (Pages production alias) | `https://sleeping-routine-for-zy.pages.dev/callback` |
+| Flutter web (Pages / remote) | `{current origin}/callback` (production alias matches the row above) |
 
-Register **all** hosts you use. On web the app uses `{current origin}/callback` unless you override with `--dart-define=SPOTIFY_REDIRECT_URI=...`.
+On web the app uses `{current origin}/callback` unless you override with `--dart-define=SPOTIFY_REDIRECT_URI=...`.
 
-Android uses the custom scheme by default (deep link into the app via `app_links`).  
+Android/iOS use the Pages HTTPS URI and return via **App Links / Universal Links** (`app_links` on Flutter; Associated Domains on native iOS).  
+Hosted verification files: `web/.well-known/assetlinks.json` and `web/.well-known/apple-app-site-association` (replace `REPLACE_APPLE_TEAM_ID` before shipping iOS). Add a release-keystore SHA-256 to `assetlinks.json` when you stop signing release APKs with the debug key.
+
 Web uses same-tab redirect to `/callback`. Override with:
 
 ```powershell

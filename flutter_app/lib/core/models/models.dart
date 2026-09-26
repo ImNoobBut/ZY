@@ -20,6 +20,41 @@ enum QuietSound {
   }
 }
 
+/// Wake-alarm ringtone catalog (shared IDs with Swift `AlarmSound`).
+enum AlarmSound {
+  /// Serialized as `default` for Swift parity (`default` is a Dart keyword).
+  systemDefault,
+  gentle,
+  chime;
+
+  String get id => switch (this) {
+        AlarmSound.systemDefault => 'default',
+        AlarmSound.gentle => 'gentle',
+        AlarmSound.chime => 'chime',
+      };
+
+  String get displayName => switch (this) {
+        AlarmSound.systemDefault => 'Default',
+        AlarmSound.gentle => 'Gentle',
+        AlarmSound.chime => 'Chime',
+      };
+
+  /// Android `res/raw` / iOS bundle base name (no extension).
+  String get resourceName => switch (this) {
+        AlarmSound.systemDefault => 'alarm_default',
+        AlarmSound.gentle => 'alarm_gentle',
+        AlarmSound.chime => 'alarm_chime',
+      };
+
+  static AlarmSound fromId(String? id) {
+    if (id == null || id.isEmpty) return AlarmSound.systemDefault;
+    return AlarmSound.values.firstWhere(
+      (e) => e.id == id || e.name == id,
+      orElse: () => AlarmSound.systemDefault,
+    );
+  }
+}
+
 /// Fade-out window for app-owned audio at end of sleep timer.
 const int kFadeOutSeconds = 300;
 
@@ -183,6 +218,9 @@ class SleepAlarm {
     required this.minute,
     this.label = 'Wake up',
     this.isEnabled = true,
+    this.sound = AlarmSound.systemDefault,
+    /// Android content URI for a device ringtone; ignored on iOS/web.
+    this.deviceSoundUri,
     /// Dart [DateTime.weekday]: Mon=1 … Sun=7. Empty = once (next matching time).
     Set<int>? repeatDays,
     DateTime? updatedAt,
@@ -194,12 +232,21 @@ class SleepAlarm {
   int minute;
   String label;
   bool isEnabled;
+  AlarmSound sound;
+  String? deviceSoundUri;
   Set<int> repeatDays;
   DateTime updatedAt;
 
   void touch() => updatedAt = DateTime.now().toUtc();
 
   static const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /// True when an Android device ringtone URI overrides the catalog.
+  bool get usesDeviceSound =>
+      deviceSoundUri != null && deviceSoundUri!.trim().isNotEmpty;
+
+  String get soundDisplayName =>
+      usesDeviceSound ? 'Device sound' : sound.displayName;
 
   String get repeatSummary {
     if (repeatDays.isEmpty) return 'Once';
@@ -231,18 +278,23 @@ class SleepAlarm {
         'minute': minute,
         'label': label,
         'isEnabled': isEnabled,
+        'sound': sound.id,
+        'deviceSoundUri': deviceSoundUri,
         'repeatDays': repeatDays.toList(),
         'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory SleepAlarm.fromJson(Map<String, dynamic> json) {
     final days = (json['repeatDays'] as List?)?.cast<int>() ?? const <int>[];
+    final uri = (json['deviceSoundUri'] as String?)?.trim();
     return SleepAlarm(
       id: json['id'] as String,
       hour: json['hour'] as int,
       minute: json['minute'] as int,
       label: json['label'] as String? ?? 'Wake up',
       isEnabled: json['isEnabled'] as bool? ?? true,
+      sound: AlarmSound.fromId(json['sound'] as String?),
+      deviceSoundUri: (uri == null || uri.isEmpty) ? null : uri,
       repeatDays: days.toSet(),
       updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now().toUtc(),
     );
@@ -253,6 +305,9 @@ class SleepAlarm {
     int? minute,
     String? label,
     bool? isEnabled,
+    AlarmSound? sound,
+    String? deviceSoundUri,
+    bool clearDeviceSoundUri = false,
     Set<int>? repeatDays,
     DateTime? updatedAt,
   }) {
@@ -262,6 +317,9 @@ class SleepAlarm {
       minute: minute ?? this.minute,
       label: label ?? this.label,
       isEnabled: isEnabled ?? this.isEnabled,
+      sound: sound ?? this.sound,
+      deviceSoundUri:
+          clearDeviceSoundUri ? null : (deviceSoundUri ?? this.deviceSoundUri),
       repeatDays: repeatDays ?? Set<int>.from(this.repeatDays),
       updatedAt: updatedAt ?? this.updatedAt,
     );

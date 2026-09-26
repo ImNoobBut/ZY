@@ -94,8 +94,8 @@ final class SpotifyAuthManager: NSObject {
 
     private func startWebAuth(url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
-            let scheme = URL(string: configuration.spotifyRedirectURI)?.scheme ?? "sleepingroutineforzy"
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: scheme) { callbackURL, error in
+            // iOS 17.4+: HTTPS callback when Associated Domains claim the redirect host.
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "https") { callbackURL, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return

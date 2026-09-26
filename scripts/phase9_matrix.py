@@ -83,11 +83,29 @@ def check_static_contracts() -> None:
 
     info = read(ROOT / "SleepingRoutineForZy/Resources/Info.plist")
     record("NSAlarmKitUsageDescription" in info, "Info.plist AlarmKit usage string")
-    record("spotify-callback" in info or "CFBundleURLSchemes" in info, "iOS Spotify URL scheme present")
+    record(
+        "CFBundleURLSchemes" not in info and "sleepingroutineforzy" not in info,
+        "iOS custom Spotify URL scheme removed (HTTPS Universal Links)",
+    )
+    entitlements = read(ROOT / "SleepingRoutineForZy/SleepingRoutineForZy.entitlements")
+    record(
+        "applinks:sleeping-routine-for-zy.pages.dev" in entitlements,
+        "iOS Associated Domains entitlement for Pages callback",
+    )
+    shared = read(ROOT / "Config/Shared.xcconfig")
+    record(
+        "sleeping-routine-for-zy.pages.dev/callback" in shared,
+        "Shared.xcconfig Spotify redirect is Pages HTTPS",
+    )
+    assetlinks = read(ROOT / "flutter_app/web/.well-known/assetlinks.json")
+    record(
+        "com.zy.sleepingroutine.sleeping_routine_for_zy" in assetlinks,
+        "Android Digital Asset Links package present",
+    )
 
     readme = read(ROOT / "README.md")
     for uri in (
-        "sleepingroutineforzy://spotify-callback",
+        "https://sleeping-routine-for-zy.pages.dev/callback",
         "http://127.0.0.1:7357/callback",
         "pages.dev/callback",
     ):

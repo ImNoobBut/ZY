@@ -24,8 +24,8 @@ class MobileAlarmScheduler implements AlarmScheduler {
   Set<String> _trackedIds = {};
   static const _trackedIdsKey = 'zy_mobile_scheduled_alarm_ids';
 
-  static const _channelId = 'zy_wake_alarms_v2';
-  static const _channelName = 'Wake alarms';
+  /// Per-sound channels (Android 8+ locks sound at channel creation).
+  static const _channelVersion = 'v3';
 
   @override
   bool get isBestEffortOnly => false;
@@ -85,21 +85,48 @@ class MobileAlarmScheduler implements AlarmScheduler {
       const InitializationSettings(android: android, iOS: ios),
     );
 
+    for (final sound in AlarmSound.values) {
+      await _ensureCatalogChannel(sound);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    _trackedIds = prefs.getStringList(_trackedIdsKey)?.toSet() ?? {};
+    _ready = true;
+  }
+
+  String _catalogChannelId(AlarmSound sound) =>
+      'zy_wake_alarms_${sound.resourceName}_$_channelVersion';
+
+  String _deviceChannelId(String uri) =>
+      'zy_wake_alarms_device_${uri.hashCode.abs()}_$_channelVersion';
+
+  Future<void> _ensureCatalogChannel(AlarmSound sound) async {
     await _android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
+      AndroidNotificationChannel(
+        _catalogChannelId(sound),
+        'Wake alarms · ${sound.displayName}',
         description: 'Wake alarms for Sleeping Routine for Zy',
         importance: Importance.max,
         playSound: true,
         enableVibration: true,
-        // Alarm stream — more likely to alert even when phone is on vibrate.
+        sound: RawResourceAndroidNotificationSound(sound.resourceName),
         audioAttributesUsage: AudioAttributesUsage.alarm,
       ),
     );
-    final prefs = await SharedPreferences.getInstance();
-    _trackedIds = prefs.getStringList(_trackedIdsKey)?.toSet() ?? {};
-    _ready = true;
+  }
+
+  Future<void> _ensureDeviceChannel(String uri) async {
+    await _android?.createNotificationChannel(
+      AndroidNotificationChannel(
+        _deviceChannelId(uri),
+        'Wake alarms · Device sound',
+        description: 'Wake alarms with a device ringtone',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        sound: UriAndroidNotificationSound(uri),
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      ),
+    );
   }
 
   Future<void> _persistTrackedIds() async {
@@ -175,27 +202,54 @@ class MobileAlarmScheduler implements AlarmScheduler {
       );
     }
 
-    final details = NotificationDetails(
+    final details = await _notificationDetailsFor(alarm);
+    await _scheduleAlarmNotifications(alarm, details);
+    _trackedIds.add(alarm.id);
+    await _persistTrackedIds();
+  }
+
+  Future<NotificationDetails> _notificationDetailsFor(SleepAlarm alarm) async {
+    final useDevice = Platform.isAndroid && alarm.usesDeviceSound;
+    late final String channelId;
+    late final String channelName;
+    late final AndroidNotificationSound androidSound;
+
+    if (useDevice) {
+      final uri = alarm.deviceSoundUri!;
+      await _ensureDeviceChannel(uri);
+      channelId = _deviceChannelId(uri);
+      channelName = 'Wake alarms · Device sound';
+      androidSound = UriAndroidNotificationSound(uri);
+    } else {
+      await _ensureCatalogChannel(alarm.sound);
+      channelId = _catalogChannelId(alarm.sound);
+      channelName = 'Wake alarms · ${alarm.sound.displayName}';
+      androidSound = RawResourceAndroidNotificationSound(alarm.sound.resourceName);
+    }
+
+    // iOS looks up a bundled file named resourceName.wav when present;
+    // otherwise the system default is used.
+    final iosSound = '${alarm.sound.resourceName}.wav';
+
+    return NotificationDetails(
       android: AndroidNotificationDetails(
-        _channelId,
-        _channelName,
+        channelId,
+        channelName,
         channelDescription: 'Wake alarms for Sleeping Routine for Zy',
         importance: Importance.max,
         priority: Priority.max,
         category: AndroidNotificationCategory.alarm,
         fullScreenIntent: true,
         playSound: true,
+        sound: androidSound,
         audioAttributesUsage: AudioAttributesUsage.alarm,
       ),
-      iOS: const DarwinNotificationDetails(
+      iOS: DarwinNotificationDetails(
         presentAlert: true,
         presentSound: true,
+        sound: iosSound,
       ),
     );
-
-    await _scheduleAlarmNotifications(alarm, details);
-    _trackedIds.add(alarm.id);
-    await _persistTrackedIds();
   }
 
   Future<void> _scheduleAlarmNotifications(

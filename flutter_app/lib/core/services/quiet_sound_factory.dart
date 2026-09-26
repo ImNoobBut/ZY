@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../models/models.dart';
+import 'alarm_sound_factory.dart';
 
 /// Procedural short looping WAV samples (parity with Swift SleepAudioSampleFactory).
 class QuietSoundFactory {
@@ -19,20 +20,9 @@ class QuietSoundFactory {
   }
 
   /// Louder looping beep for wake alarms (web in-tab ring).
-  static Uint8List makeAlarmWav() {
-    const sampleRate = 22050.0;
-    const durationSeconds = 1.0;
-    final frameCount = (durationSeconds * sampleRate).round();
-    final samples = Int16List(frameCount);
-    for (var frame = 0; frame < frameCount; frame++) {
-      final t = frame / sampleRate;
-      // Two pulses per second (on/off) so the loop reads as an alarm chirp.
-      final gate = (t % 0.5) < 0.28 ? 1.0 : 0.0;
-      final sample = (sin(2 * pi * 880 * t) * 0.45 + sin(2 * pi * 1100 * t) * 0.25) * gate;
-      samples[frame] = (sample.clamp(-1.0, 1.0) * 32767).round();
-    }
-    return _wrapPcm(samples, sampleRate);
-  }
+  /// Prefer [AlarmSoundFactory.makeWav] for catalog sounds.
+  static Uint8List makeAlarmWav() =>
+      AlarmSoundFactory.makeWav(AlarmSound.systemDefault);
 
   static Uint8List _tone({
     required double frequency,

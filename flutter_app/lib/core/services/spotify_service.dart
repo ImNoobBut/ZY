@@ -56,7 +56,7 @@ class SpotifyService {
   Future<void> openAuthorizeInBrowser() async {
     final uri = await buildAuthorizeUri();
     // On web, stay in the same tab so Spotify can redirect back to /callback.
-    // On Android, open the system browser; the custom-scheme redirect returns via app_links.
+    // On Android, open the system browser; HTTPS App Links return via app_links.
     final ok = await launchUrl(
       uri,
       webOnlyWindowName: '_self',

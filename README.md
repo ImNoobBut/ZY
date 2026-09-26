@@ -59,14 +59,14 @@ This repository currently contains **Phase 9 — Device test matrix**: automated
 
 ## iOS Deployment Target
 
-**iOS 17.0**
+**iOS 17.4** (required for HTTPS `ASWebAuthenticationSession` callbacks with Associated Domains)
 
 ## Spotify Setup
 
 Phase 6 uses **Authorization Code with PKCE** (`ASWebAuthenticationSession`) and the **Spotify Web API**. The official Spotify iOS App Remote SDK is not embedded here (binary SDK / CocoaPods packaging is awkward on this Windows-authored tree); Web API player endpoints are the supported path today. App Remote can be added later on macOS via the official SpotifyiOS package.
 
 1. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-2. Add redirect URI exactly: `sleepingroutineforzy://spotify-callback`
+2. Add redirect URI exactly: `https://sleeping-routine-for-zy.pages.dev/callback`
 3. Copy secrets template and set the **public** Client ID:
 
    ```bash
@@ -74,12 +74,14 @@ Phase 6 uses **Authorization Code with PKCE** (`ASWebAuthenticationSession`) and
    # Edit SPOTIFY_CLIENT_ID=...
    ```
 
-4. Rebuild. Connect from **Onboarding** or **Settings → Spotify**.
-5. Never commit confidential client secrets. PKCE does not need a client secret in the app.
+4. Set your Apple Team ID in `flutter_app/web/.well-known/apple-app-site-association` (replace `REPLACE_APPLE_TEAM_ID`) and enable the **Associated Domains** capability for `com.zy.sleepingroutine` in the Apple Developer portal. Redeploy web so AASA is live.
+5. Rebuild. Connect from **Onboarding** or **Settings → Spotify**.
+6. Never commit confidential client secrets. PKCE does not need a client secret in the app.
 
 ## OAuth Configuration
 
-- Redirect URI: `sleepingroutineforzy://spotify-callback` (`CFBundleURLTypes` + `SPOTIFY_REDIRECT_URI`)
+- Redirect URI: `https://sleeping-routine-for-zy.pages.dev/callback` (Android App Links + iOS Universal Links / Associated Domains)
+- Hosted verification: `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association` on Pages
 - Tokens stored only in the **iOS Keychain** (`SpotifyKeychainTokenStore`)
 - Never store tokens in UserDefaults, SwiftData, or source control
 - Scopes: `user-read-private`, `playlist-read-private`, `playlist-read-collaborative`, `user-modify-playback-state`, `user-read-playback-state`
@@ -201,17 +203,16 @@ Hardening shipped with this phase:
 - Official **App Remote** (SDK) is not bundled in this phase; it can be layered on later without changing the Keychain/PKCE token store.
 - Physical device + real Client ID recommended for end-to-end playback tests.
 - Redirect URIs to register in Spotify Dashboard:
-  - iOS / Android: `sleepingroutineforzy://spotify-callback`
+  - Native (iOS / Android) + Pages production: `https://sleeping-routine-for-zy.pages.dev/callback`
   - Flutter web (local): `http://127.0.0.1:7357/callback`
-  - Flutter web (Pages): `https://700ff232.sleeping-routine-for-zy.pages.dev/callback`
-  - Flutter web (Pages alias): `https://sleeping-routine-for-zy.pages.dev/callback`
+  - Flutter web (Pages preview hosts): `{that-origin}/callback` if you test on a `*.pages.dev` preview URL
 
 ## Device verification checklist (MVP)
 
 1. **Spotify Dashboard** — add the redirect URIs above; set `SPOTIFY_CLIENT_ID` in `Config/Secrets.xcconfig` (iOS) and/or `--dart-define=SPOTIFY_CLIENT_ID=...` (Flutter).
 2. **iPhone (Mac required)** — Xcode with **iOS 26 SDK** for AlarmKit path; signing Team; install on device; grant AlarmKit; set a wake alarm; connect Spotify and start a bedtime routine.
-3. **Older iPhone (iOS 17–25)** — same app build; alarms use notification fallback; grant notifications.
-4. **Android** — grant notifications + exact alarms; set alarm; force-stop app; confirm fire; complete Spotify OAuth (custom scheme returns into the app).
+3. **Older iPhone (iOS 17.4–25)** — same app build; alarms use notification fallback; grant notifications.
+4. **Android** — grant notifications + exact alarms; set alarm; force-stop app; confirm fire; complete Spotify OAuth (HTTPS App Link returns into the app).
 5. **Chrome web** — Spotify connect via `http://127.0.0.1:7357`; confirm alarm limitation copy; browser reminders only while the tab is open.
 
 ### Phase 9 — automated matrix subset
@@ -270,8 +271,8 @@ Config/                   # xcconfig (secrets gitignored)
 
 Phases 1–9 are in-tree:
 
-- **iOS:** AlarmKit on iOS 26+ (`AlarmSchedulerAlarmKit`), notification fallback otherwise; Spotify OAuth PKCE
-- **Flutter Android:** exact local notifications + Spotify deep-link (`sleepingroutineforzy://spotify-callback`)
+- **iOS:** AlarmKit on iOS 26+ (`AlarmSchedulerAlarmKit`), notification fallback otherwise; Spotify OAuth PKCE (HTTPS Universal Links)
+- **Flutter Android:** exact local notifications + Spotify App Links (`https://sleeping-routine-for-zy.pages.dev/callback`)
 - **Flutter Web:** best-effort browser reminders + Spotify web redirect
 - **Phase 8:** privacy/security hardening (health leak closed, admin TTL, Flutter secure store)
 - **Phase 9:** device test matrix + `scripts/phase9_matrix.py` + CI

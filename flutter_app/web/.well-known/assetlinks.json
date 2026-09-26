@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.zy.sleepingroutine.sleeping_routine_for_zy",
+      "sha256_cert_fingerprints": [
+        "CEC22EFE4462194AABB9645F30723D7AB3F413B44CFB6104AF1E023EB5D6E338"
+      ]
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../app_state.dart';
 import '../../core/models/models.dart';
+import '../../core/services/alarm_ringtone_picker_factory.dart';
+import '../../core/services/alarm_sound_factory.dart';
 import '../../core/theme/app_theme.dart';
 import '../../ui/widgets.dart';
 
@@ -99,6 +102,10 @@ class AlarmsScreen extends StatelessWidget {
                                     style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
                                   ),
                                   Text(alarm.label, style: const TextStyle(color: AppTheme.secondaryText)),
+                                  Text(
+                                    'Sound: ${alarm.soundDisplayName}',
+                                    style: const TextStyle(color: AppTheme.tertiaryText, fontSize: 13),
+                                  ),
                                   Text(alarm.repeatSummary, style: const TextStyle(color: AppTheme.tertiaryText)),
                                   Text(nextText, style: const TextStyle(color: AppTheme.accentSoft, fontSize: 13)),
                                 ],
@@ -215,6 +222,11 @@ class _AlarmEditorSheetState extends State<_AlarmEditorSheet> {
   late Set<int> _days;
   late TextEditingController _label;
   late bool _enabled;
+  late AlarmSound _sound;
+  String? _deviceSoundUri;
+  final _ringtonePicker = createAlarmRingtonePicker();
+  final AudioPlayer _previewPlayer = AudioPlayer();
+  bool _previewing = false;
 
   @override
   void initState() {
@@ -225,12 +237,45 @@ class _AlarmEditorSheetState extends State<_AlarmEditorSheet> {
     _days = Set<int>.from(initial?.repeatDays ?? <int>{});
     _label = TextEditingController(text: initial?.label ?? 'Wake up');
     _enabled = initial?.isEnabled ?? true;
+    _sound = initial?.sound ?? AlarmSound.systemDefault;
+    _deviceSoundUri = initial?.deviceSoundUri;
   }
 
   @override
   void dispose() {
     _label.dispose();
+    _previewPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _previewSound(AlarmSound sound) async {
+    try {
+      setState(() => _previewing = true);
+      await _previewPlayer.stop();
+      await _previewPlayer.setReleaseMode(ReleaseMode.release);
+      await _previewPlayer.setVolume(AlarmSoundFactory.maxVolume);
+      final bytes = AlarmSoundFactory.makeWav(sound);
+      await _previewPlayer.play(BytesSource(bytes, mimeType: 'audio/wav'));
+    } catch (_) {
+      // Preview is best-effort (autoplay / decoding).
+    } finally {
+      if (mounted) setState(() => _previewing = false);
+    }
+  }
+
+  Future<void> _pickDeviceSound() async {
+    final uri = await _ringtonePicker.pickRingtone(currentUri: _deviceSoundUri);
+    if (!mounted || uri == null) return;
+    setState(() {
+      _deviceSoundUri = uri;
+    });
+  }
+
+  void _selectCatalog(AlarmSound sound) {
+    setState(() {
+      _sound = sound;
+      _deviceSoundUri = null;
+    });
   }
 
   @override
@@ -240,8 +285,11 @@ class _AlarmEditorSheetState extends State<_AlarmEditorSheet> {
       hour: _time.hour,
       minute: _time.minute,
       isEnabled: _enabled,
+      sound: _sound,
+      deviceSoundUri: _deviceSoundUri,
       repeatDays: _days,
     ).nextFireAfter();
+    final deviceSelected = _deviceSoundUri != null && _deviceSoundUri!.trim().isNotEmpty;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -250,81 +298,138 @@ class _AlarmEditorSheetState extends State<_AlarmEditorSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.initial == null ? 'Add alarm' : 'Edit alarm',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Time'),
-            trailing: Text(
-              _time.format(context),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-            ),
-            onTap: () async {
-              final picked = await showTimePicker(context: context, initialTime: _time);
-              if (picked != null) setState(() => _time = picked);
-            },
-          ),
-          TextField(
-            controller: _label,
-            decoration: const InputDecoration(labelText: 'Label', filled: true),
-          ),
-          const SizedBox(height: 16),
-          const Text('Repeat (tap days that are On)', style: TextStyle(color: AppTheme.tertiaryText)),
-          const SizedBox(height: 8),
-          _WeekdayChips(
-            selected: _days,
-            onToggle: (day) {
-              setState(() {
-                if (_days.contains(day)) {
-                  _days.remove(day);
-                } else {
-                  _days.add(day);
-                }
-              });
-            },
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _days.isEmpty
-                ? 'Once — fires at the next matching time.'
-                : 'Repeats: ${SleepAlarm(id: 'x', hour: 0, minute: 0, repeatDays: _days).repeatSummary}',
-            style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13),
-          ),
-          if (preview != null)
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              'Next fire: ${DateFormat('EEE, MMM d · HH:mm').format(preview)}',
-              style: const TextStyle(color: AppTheme.accentSoft, fontSize: 13),
+              widget.initial == null ? 'Add alarm' : 'Edit alarm',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Enabled'),
-            value: _enabled,
-            onChanged: (v) => setState(() => _enabled = v),
-          ),
-          const SizedBox(height: 8),
-          PrimaryButton(
-            label: 'Save alarm',
-            onPressed: () {
-              Navigator.of(context).pop(
-                SleepAlarm(
-                  id: widget.initial?.id ?? const Uuid().v4(),
-                  hour: _time.hour,
-                  minute: _time.minute,
-                  label: _label.text.trim().isEmpty ? 'Wake up' : _label.text.trim(),
-                  isEnabled: _enabled,
-                  repeatDays: Set<int>.from(_days),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Time'),
+              trailing: Text(
+                _time.format(context),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+              ),
+              onTap: () async {
+                final picked = await showTimePicker(context: context, initialTime: _time);
+                if (picked != null) setState(() => _time = picked);
+              },
+            ),
+            TextField(
+              controller: _label,
+              decoration: const InputDecoration(labelText: 'Label', filled: true),
+            ),
+            const SizedBox(height: 16),
+            const Text('Sound', style: TextStyle(color: AppTheme.tertiaryText)),
+            const SizedBox(height: 8),
+            SegmentedButton<AlarmSound>(
+              segments: [
+                for (final s in AlarmSound.values)
+                  ButtonSegment(value: s, label: Text(s.displayName)),
+              ],
+              selected: {_sound},
+              onSelectionChanged: (next) {
+                if (next.isEmpty) return;
+                _selectCatalog(next.first);
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _previewing ? null : () => _previewSound(_sound),
+                  icon: const Icon(Icons.play_arrow, size: 20),
+                  label: Text(_previewing ? 'Playing…' : 'Preview'),
                 ),
-              );
-            },
-          ),
-        ],
+                if (deviceSelected)
+                  const Expanded(
+                    child: Text(
+                      'Device sound overrides catalog on Android',
+                      style: TextStyle(color: AppTheme.tertiaryText, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            if (_ringtonePicker.isSupported) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.phone_android,
+                  color: deviceSelected ? AppTheme.accent : AppTheme.secondaryText,
+                ),
+                title: const Text('Device sound…'),
+                subtitle: Text(
+                  deviceSelected ? 'Custom ringtone selected' : 'Pick an Android ringtone or alarm',
+                  style: const TextStyle(color: AppTheme.tertiaryText, fontSize: 13),
+                ),
+                trailing: deviceSelected
+                    ? IconButton(
+                        tooltip: 'Clear device sound',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => setState(() => _deviceSoundUri = null),
+                      )
+                    : const Icon(Icons.chevron_right),
+                onTap: _pickDeviceSound,
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Text('Repeat (tap days that are On)', style: TextStyle(color: AppTheme.tertiaryText)),
+            const SizedBox(height: 8),
+            _WeekdayChips(
+              selected: _days,
+              onToggle: (day) {
+                setState(() {
+                  if (_days.contains(day)) {
+                    _days.remove(day);
+                  } else {
+                    _days.add(day);
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _days.isEmpty
+                  ? 'Once — fires at the next matching time.'
+                  : 'Repeats: ${SleepAlarm(id: 'x', hour: 0, minute: 0, repeatDays: _days).repeatSummary}',
+              style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13),
+            ),
+            if (preview != null)
+              Text(
+                'Next fire: ${DateFormat('EEE, MMM d · HH:mm').format(preview)}',
+                style: const TextStyle(color: AppTheme.accentSoft, fontSize: 13),
+              ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enabled'),
+              value: _enabled,
+              onChanged: (v) => setState(() => _enabled = v),
+            ),
+            const SizedBox(height: 8),
+            PrimaryButton(
+              label: 'Save alarm',
+              onPressed: () {
+                Navigator.of(context).pop(
+                  SleepAlarm(
+                    id: widget.initial?.id ?? const Uuid().v4(),
+                    hour: _time.hour,
+                    minute: _time.minute,
+                    label: _label.text.trim().isEmpty ? 'Wake up' : _label.text.trim(),
+                    isEnabled: _enabled,
+                    sound: _sound,
+                    deviceSoundUri: _deviceSoundUri,
+                    repeatDays: Set<int>.from(_days),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

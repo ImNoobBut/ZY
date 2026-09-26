@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/alarms/alarms_screen.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/help/help_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/privacy/privacy_screen.dart';
@@ -30,6 +31,7 @@ class ZyApp extends StatelessWidget {
         '/spotify': (_) => const SpotifyScreen(),
         '/admin': (_) => const AdminScreen(),
         '/privacy': (_) => const PrivacyScreen(),
+        '/help': (_) => const HelpScreen(),
         '/bedtime': (_) => const BedtimeSettingsScreen(),
         '/quiet-sound': (_) => const QuietSoundScreen(),
         '/history': (_) => const SleepHistoryScreen(),

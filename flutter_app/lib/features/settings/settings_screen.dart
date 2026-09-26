@@ -108,6 +108,15 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).pushNamed('/admin'),
           ),
           ListTile(
+            title: const Text('Help'),
+            subtitle: const Text(
+              'New-user guide',
+              style: TextStyle(color: AppTheme.secondaryText),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pushNamed('/help'),
+          ),
+          ListTile(
             title: const Text('Privacy'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).pushNamed('/privacy'),

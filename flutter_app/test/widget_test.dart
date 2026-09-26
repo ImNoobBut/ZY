@@ -33,12 +33,32 @@ void main() {
         repeatDays: {1, 3, 5},
         label: 'Wake',
         isEnabled: true,
+        sound: AlarmSound.chime,
+        deviceSoundUri: 'content://media/external/audio/media/1',
       );
       final decoded = SleepAlarm.fromJson(alarm.toJson());
       expect(decoded.hour, 7);
       expect(decoded.minute, 15);
       expect(decoded.repeatDays, {1, 3, 5});
       expect(decoded.isEnabled, isTrue);
+      expect(decoded.sound, AlarmSound.chime);
+      expect(decoded.deviceSoundUri, 'content://media/external/audio/media/1');
+      expect(decoded.soundDisplayName, 'Device sound');
+    });
+
+    test('SleepAlarm fromJson defaults sound for legacy payloads', () {
+      final decoded = SleepAlarm.fromJson({
+        'id': 'legacy',
+        'hour': 6,
+        'minute': 30,
+        'label': 'Wake',
+        'isEnabled': true,
+        'repeatDays': <int>[],
+      });
+      expect(decoded.sound, AlarmSound.systemDefault);
+      expect(decoded.deviceSoundUri, isNull);
+      expect(AlarmSound.fromId('default'), AlarmSound.systemDefault);
+      expect(decoded.toJson()['sound'], 'default');
     });
 
     test('DeviceStatus check-in payload includes opt-in fields', () {

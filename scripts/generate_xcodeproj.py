@@ -172,6 +172,7 @@ def main() -> None:
 \t\t\t\tENABLE_TESTABILITY = YES;
 \t\t\t\tGENERATE_INFOPLIST_FILE = NO;
 \t\t\t\tINFOPLIST_FILE = SleepingRoutineForZy/Resources/Info.plist;
+\t\t\t\tCODE_SIGN_ENTITLEMENTS = SleepingRoutineForZy/SleepingRoutineForZy.entitlements;
 \t\t\t\tINFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 \t\t\t\tLD_RUNPATH_SEARCH_PATHS = (
 \t\t\t\t\t"$(inherited)",
@@ -197,7 +198,7 @@ def main() -> None:
 \t\t\t\tCODE_SIGN_STYLE = Automatic;
 \t\t\t\tCURRENT_PROJECT_VERSION = 1;
 \t\t\t\tGENERATE_INFOPLIST_FILE = YES;
-\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;
+\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.4;
 \t\t\t\tMARKETING_VERSION = 0.1.0;
 \t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.zy.sleepingroutine.tests;
 \t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";
@@ -497,7 +498,7 @@ def main() -> None:
 \t\t\t\tDEBUG_INFORMATION_FORMAT = dwarf;
 \t\t\t\tENABLE_TESTABILITY = YES;
 \t\t\t\tGCC_DYNAMIC_NO_PIC = NO;
-\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;
+\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.4;
 \t\t\t\tONLY_ACTIVE_ARCH = YES;
 \t\t\t\tSDKROOT = iphoneos;
 \t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -514,7 +515,7 @@ def main() -> None:
 \t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;
 \t\t\t\tCOPY_PHASE_STRIP = NO;
 \t\t\t\tDEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;
+\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.4;
 \t\t\t\tSDKROOT = iphoneos;
 \t\t\t\tSWIFT_COMPILATION_MODE = wholemodule;
 \t\t\t\tSWIFT_VERSION = 5.0;
