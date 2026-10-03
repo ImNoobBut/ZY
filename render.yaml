@@ -16,3 +16,16 @@ services:
         sync: false
       - key: HOST
         value: 0.0.0.0
+      # Password-reset mail (set values in Render dashboard — do not commit secrets)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: APP_DISPLAY_NAME
+        value: Zy Sleep
