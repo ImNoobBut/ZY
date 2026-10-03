@@ -1,22 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
 
 import 'package:app_links/app_links.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'core/config/app_config.dart';
 import 'core/models/models.dart';
 import 'core/services/admin_service.dart';
-import 'core/services/alarm_scheduler.dart';
 import 'core/services/auth_service.dart';
-import 'core/services/quiet_audio_service.dart';
 import 'core/services/spotify_service.dart';
-import 'core/services/streak_calculator.dart';
 import 'core/services/sync_service.dart';
 import 'core/storage/local_store.dart';
 import 'core/web/web_oauth.dart';
@@ -28,23 +21,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required this.spotify,
     required this.admin,
     required this.auth,
-    required this.audio,
-    required this.alarmScheduler,
     required this.sync,
   });
 
   final AppConfig config;
   final LocalStore store;
   final SpotifyService spotify;
+  /// Device tokens / pairing for auth + sync (not Remote Admin UI).
   final AdminService admin;
   final AuthService auth;
-  final QuietAudioService audio;
-  final AlarmScheduler alarmScheduler;
   final SyncService sync;
 
   UserPreferences preferences = UserPreferences();
-  List<SleepAlarm> alarms = [];
-  List<SleepSessionRecord> sessions = [];
   SleepRoutine? activeRoutine;
   RoutineState routineState = RoutineState.idle;
   String musicLabel = 'Not configured yet';
@@ -52,36 +40,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String? infoMessage;
   bool busy = false;
   bool ready = false;
-  bool? alarmsPermissionGranted;
-  bool fadeStarted = false;
 
   Timer? _ticker;
-  Timer? _adminCommandPollTimer;
-  bool _appInForeground = true;
   StreamSubscription<Uri>? _linkSub;
-  StreamSubscription<SleepAlarm>? _alarmFiredSub;
-
-  int get currentStreak => StreakCalculator.currentStreak(
-        sessions: sessions,
-        bedtimeHour: preferences.preferredBedtimeHour,
-        bedtimeMinute: preferences.preferredBedtimeMinute,
-      );
 
   bool get isLoggedIn => auth.isLoggedIn;
 
   Future<void> bootstrap() async {
     WidgetsBinding.instance.addObserver(this);
     preferences = await store.loadPreferences();
-    alarms = await store.loadAlarms();
-    sessions = await store.loadSessions();
     activeRoutine = await store.loadActiveRoutine();
     await spotify.restore();
     await admin.restore();
     await auth.restore();
-    await alarmScheduler.initialize();
-    _alarmFiredSub?.cancel();
-    _alarmFiredSub = alarmScheduler.onAlarmFired.listen(_onAlarmFired);
-    alarmsPermissionGranted = await alarmScheduler.hasPermission();
 
     await sync.start(onRemoteApplied: _applyRemoteSync);
     sync.addListener(_onSyncChanged);
@@ -102,24 +73,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await _listenForSpotifyDeepLinks();
     }
 
-    try {
-      await alarmScheduler.reconcile(alarms);
-      await _syncBedtimeReminder();
-      alarmsPermissionGranted = await alarmScheduler.hasPermission();
-    } catch (e) {
-      // Must not block runApp — web/iOS Safari often denies notifications.
-      alarmsPermissionGranted = false;
-      errorMessage ??= 'Could not schedule alarms: $e';
-    }
-
     _reconcileRoutine();
     _refreshMusicLabel();
     ready = true;
     notifyListeners();
-    if (preferences.remoteMonitoringOptIn) {
-      _startAdminCommandPolling();
-      unawaited(pollRemoteAdminAndCheckIn());
-    }
     if (isLoggedIn) {
       unawaited(sync.syncNow());
     }
@@ -233,11 +190,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required SleepRoutine? activeRoutine,
   }) async {
     this.preferences = preferences;
-    this.alarms = alarms;
-    this.sessions = sessions;
     this.activeRoutine = activeRoutine;
-    await alarmScheduler.reconcile(alarms);
-    await _syncBedtimeReminder();
     _reconcileRoutine();
     _refreshMusicLabel();
     notifyListeners();
@@ -246,18 +199,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _appInForeground = true;
       unawaited(sync.syncNow());
-      if (preferences.remoteMonitoringOptIn) {
-        _startAdminCommandPolling();
-        unawaited(pollRemoteAdminAndCheckIn());
-      }
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached ||
-        state == AppLifecycleState.hidden) {
-      _appInForeground = false;
-      _stopAdminCommandPolling();
     }
   }
 
@@ -295,10 +237,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     sync.removeListener(_onSyncChanged);
     sync.disposeService();
     _ticker?.cancel();
-    _stopAdminCommandPolling();
     _linkSub?.cancel();
-    _alarmFiredSub?.cancel();
-    audio.dispose();
     super.dispose();
   }
 
@@ -310,143 +249,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> requestAlarmPermission() async {
-    alarmsPermissionGranted = await alarmScheduler.requestPermission();
-    // Always re-arm: web rings in-tab even without notification permission.
-    try {
-      await alarmScheduler.reconcile(alarms);
-      await _syncBedtimeReminder();
-    } catch (_) {}
-    if (alarmsPermissionGranted == true) {
-      infoMessage = 'Alarm permission granted.';
-      errorMessage = null;
-    } else if (alarmScheduler.isBestEffortOnly) {
-      // Phone web (Android Chrome / iOS Safari): notifications are optional.
-      // Never put browser-settings copy into errorMessage — Home shows it in red.
-      infoMessage = alarmScheduler.permissionNeedsSystemSettings
-          ? 'Notifications blocked in the browser. In-tab alarms still work while this tab stays open — see Alarms for how to re-enable.'
-          : 'In-tab alarms still work while this tab stays open. Notifications are optional on web.';
-      errorMessage = null;
-    } else {
-      // Native Android / iOS: permission is required for real wake alarms.
-      errorMessage = alarmScheduler.permissionNeedsSystemSettings
-          ? alarmScheduler.permissionSettingsHint
-          : 'Alarm permission is off. Enable it from the Alarms tab to schedule wake alarms.';
-      infoMessage = null;
-    }
-    notifyListeners();
-  }
-
-  Future<void> completeOnboarding({
-    required int timerMinutes,
-    required bool alarmEnabled,
-    required int bedtimeHour,
-    required int bedtimeMinute,
-    required int wakeHour,
-    required int wakeMinute,
-  }) async {
+  Future<void> completeOnboarding({required int timerMinutes}) async {
     preferences.hasCompletedOnboarding = true;
     preferences.defaultSleepTimerSeconds = timerMinutes * 60;
-    preferences.defaultAlarmEnabled = alarmEnabled;
-    preferences.preferredBedtimeHour = bedtimeHour;
-    preferences.preferredBedtimeMinute = bedtimeMinute;
-    preferences.preferredWakeHour = wakeHour;
-    preferences.preferredWakeMinute = wakeMinute;
-    preferences.bedtimeReminderEnabled = true;
     preferences.touch();
     await store.savePreferences(preferences);
     unawaited(sync.enqueuePreferences(preferences));
-    if (alarmEnabled && alarms.isEmpty) {
-      alarms = [
-        SleepAlarm(
-          id: const Uuid().v4(),
-          hour: wakeHour,
-          minute: wakeMinute,
-          repeatDays: {1, 2, 3, 4, 5},
-        ),
-      ];
-      await store.saveAlarms(alarms);
-      unawaited(sync.enqueueAlarms(alarms));
-      await alarmScheduler.reconcile(alarms);
-    }
-    await _syncBedtimeReminder();
     notifyListeners();
   }
 
   Future<void> setDefaultTimerMinutes(int minutes) async {
-    preferences.defaultSleepTimerSeconds = minutes.clamp(1, 180) * 60;
+    preferences.defaultSleepTimerSeconds = clampSleepTimerMinutes(minutes) * 60;
     preferences.touch();
     await store.savePreferences(preferences);
     unawaited(sync.enqueuePreferences(preferences));
     notifyListeners();
-  }
-
-  Future<void> updateBedtimePrefs({
-    int? bedtimeHour,
-    int? bedtimeMinute,
-    int? wakeHour,
-    int? wakeMinute,
-    bool? bedtimeReminderEnabled,
-  }) async {
-    if (bedtimeHour != null) preferences.preferredBedtimeHour = bedtimeHour;
-    if (bedtimeMinute != null) preferences.preferredBedtimeMinute = bedtimeMinute;
-    if (wakeHour != null) preferences.preferredWakeHour = wakeHour;
-    if (wakeMinute != null) preferences.preferredWakeMinute = wakeMinute;
-    if (bedtimeReminderEnabled != null) {
-      preferences.bedtimeReminderEnabled = bedtimeReminderEnabled;
-    }
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-    await _syncBedtimeReminder();
-    notifyListeners();
-  }
-
-  Future<void> setQuietSound(QuietSound sound) async {
-    preferences.selectedQuietSound = sound;
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-    final localRoutineActive = routineState == RoutineState.timerRunning &&
-        activeRoutine?.musicSource == MusicSource.local;
-    if (localRoutineActive) {
-      final ok = await audio.play(sound);
-      if (!ok) {
-        errorMessage = audio.lastError ?? 'Could not play quiet sound.';
-      } else {
-        errorMessage = null;
-        musicLabel = sound.displayName;
-      }
-    } else {
-      _refreshMusicLabel();
-    }
-    notifyListeners();
-  }
-
-  Future<void> previewQuietSound(QuietSound sound) async {
-    final localRoutineActive = routineState == RoutineState.timerRunning &&
-        activeRoutine?.musicSource == MusicSource.local;
-    // During a local routine, switch the looping tone instead of a timed preview.
-    final ok = localRoutineActive
-        ? await audio.play(sound)
-        : await audio.preview(sound);
-    if (!ok) {
-      errorMessage = audio.lastError ?? 'Could not preview quiet sound.';
-    } else {
-      errorMessage = null;
-      if (localRoutineActive) {
-        musicLabel = sound.displayName;
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> _syncBedtimeReminder() async {
-    await alarmScheduler.scheduleBedtimeReminder(
-      hour: preferences.preferredBedtimeHour,
-      minute: preferences.preferredBedtimeMinute,
-      enabled: preferences.bedtimeReminderEnabled,
-    );
   }
 
   Future<void> startRoutine() async {
@@ -454,56 +271,45 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     busy = true;
     errorMessage = null;
     infoMessage = null;
-    fadeStarted = false;
     notifyListeners();
     try {
+      if (!spotify.isAuthenticated) {
+        errorMessage = 'Connect Spotify in Settings before starting the timer.';
+        routineState = RoutineState.idle;
+        return;
+      }
+      final uri = preferences.selectedSpotifyUri;
+      if (uri == null || uri.isEmpty) {
+        errorMessage = 'Choose a Spotify track or playlist before starting.';
+        routineState = RoutineState.idle;
+        return;
+      }
+
       routineState = RoutineState.starting;
-      final useSpotify = spotify.isAuthenticated && preferences.selectedSpotifyUri != null;
-      var playingSpotify = false;
-      if (useSpotify) {
-        try {
-          await spotify.play(preferences.selectedSpotifyUri!);
-          musicLabel = preferences.selectedSpotifyTitle ?? 'Spotify';
-          routineState = RoutineState.playing;
-          playingSpotify = true;
-        } catch (e) {
-          final ok = await audio.play(preferences.selectedQuietSound);
-          musicLabel =
-              '${preferences.selectedQuietSound.displayName} (Spotify device offline)';
-          routineState = RoutineState.playing;
-          infoMessage =
-              'Spotify had no active device, so quiet in-app audio started instead. '
-              'Open Spotify, play a track once, then retry for Spotify playback.\n$e';
-          if (!ok) {
-            errorMessage = audio.lastError ?? 'Could not start quiet sound.';
-          }
-        }
-      } else {
-        final ok = await audio.play(preferences.selectedQuietSound);
-        musicLabel = preferences.selectedQuietSound.displayName;
+      try {
+        await spotify.play(uri);
+        musicLabel = preferences.selectedSpotifyTitle ?? 'Spotify';
         routineState = RoutineState.playing;
-        if (!ok) {
-          errorMessage = audio.lastError ?? 'Could not start quiet sound.';
-        }
+      } catch (e) {
+        errorMessage =
+            'Could not start Spotify playback. Open Spotify, play a track once '
+            'on an active device, then try again.\n$e';
+        routineState = RoutineState.idle;
+        return;
       }
 
       final now = DateTime.now();
       final duration = preferences.defaultSleepTimerSeconds;
-      final enabledAlarm = _firstEnabledAlarm();
       activeRoutine = SleepRoutine(
         id: const Uuid().v4(),
         sleepTimerDurationSeconds: duration,
-        musicSource: playingSpotify ? MusicSource.spotify : MusicSource.local,
+        musicSource: MusicSource.spotify,
         startedAt: now,
         endsAt: now.add(Duration(seconds: duration)),
-        alarmId: enabledAlarm?.id,
       );
       await store.saveActiveRoutine(activeRoutine);
       unawaited(sync.enqueueRoutine(activeRoutine));
       routineState = RoutineState.timerRunning;
-      if (preferences.remoteMonitoringOptIn) {
-        unawaited(checkInIfNeeded());
-      }
     } finally {
       busy = false;
       notifyListeners();
@@ -511,34 +317,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> endRoutine({String? notes}) async {
-    await audio.cancelFade();
-    fadeStarted = false;
-    final started = activeRoutine?.startedAt ?? DateTime.now();
-    final now = DateTime.now();
-    await audio.stop();
     await spotify.pause();
-
-    final record = SleepSessionRecord(
-      id: const Uuid().v4(),
-      startedAt: started,
-      musicStoppedAt: now,
-      alarmTime: _firstEnabledAlarm()?.nextFireAfter(now),
-      completedAt: now,
-      notes: notes,
-    );
-    await store.appendSession(record);
-    sessions = await store.loadSessions();
-    unawaited(sync.enqueueSession(record));
 
     activeRoutine = null;
     await store.saveActiveRoutine(null);
     unawaited(sync.enqueueRoutine(null));
     routineState = RoutineState.idle;
     _refreshMusicLabel();
-    notifyListeners();
-    if (preferences.remoteMonitoringOptIn) {
-      unawaited(checkInIfNeeded());
+    if (notes != null && notes.isNotEmpty) {
+      infoMessage = notes == 'Timer completed'
+          ? 'Timer ended — Spotify paused.'
+          : notes;
     }
+    notifyListeners();
   }
 
   void _onTick() {
@@ -552,15 +343,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(endRoutine(notes: 'Timer completed'));
       return;
     }
-
-    final usingLocal = routine.musicSource == MusicSource.local;
-    if (usingLocal &&
-        !fadeStarted &&
-        left.inSeconds <= kFadeOutSeconds &&
-        audio.isPlaying) {
-      fadeStarted = true;
-      unawaited(audio.fadeOut(duration: left));
-    }
     notifyListeners();
   }
 
@@ -570,7 +352,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final wasRunning = routineState == RoutineState.timerRunning;
       routineState = RoutineState.idle;
       if (wasRunning) {
-        // Remote clear / deleted routine — stop local playback without writing a session.
         unawaited(_stopPlaybackOnly());
       }
       return;
@@ -580,43 +361,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     routineState = RoutineState.timerRunning;
-    final left = remaining();
-    if (routine.musicSource == MusicSource.local) {
-      unawaited(_resumeLocalAudioAfterReconcile(left));
-    }
   }
 
   Future<void> _stopPlaybackOnly() async {
-    await audio.cancelFade();
-    fadeStarted = false;
-    await audio.stop();
     await spotify.pause();
     _refreshMusicLabel();
-    notifyListeners();
-  }
-
-  Future<void> _onAlarmFired(SleepAlarm fired) async {
-    if (fired.repeatDays.isNotEmpty) return;
-    final idx = alarms.indexWhere((a) => a.id == fired.id);
-    if (idx < 0 || !alarms[idx].isEnabled) return;
-    final updated = [...alarms];
-    updated[idx].isEnabled = false;
-    await saveAlarms(updated);
-  }
-
-  Future<void> _resumeLocalAudioAfterReconcile(Duration? left) async {
-    final ok = await audio.play(preferences.selectedQuietSound);
-    if (!ok) {
-      errorMessage = audio.lastError ??
-          'Quiet sound did not resume after reload. Tap Start again or Preview a tone.';
-      notifyListeners();
-      return;
-    }
-    musicLabel = preferences.selectedQuietSound.displayName;
-    if (left != null && left.inSeconds <= kFadeOutSeconds && audio.isPlaying) {
-      fadeStarted = true;
-      unawaited(audio.fadeOut(duration: left));
-    }
     notifyListeners();
   }
 
@@ -632,44 +381,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       musicLabel = preferences.selectedSpotifyTitle!;
     } else if (spotify.isAuthenticated && preferences.selectedSpotifyUri != null) {
       musicLabel = 'Spotify';
-    } else if (audio.isPlaying || routineState == RoutineState.timerRunning) {
-      musicLabel = preferences.selectedQuietSound.displayName;
+    } else if (spotify.isAuthenticated) {
+      musicLabel = 'Spotify connected — pick a track';
     } else {
-      musicLabel = preferences.selectedQuietSound.displayName;
+      musicLabel = 'Connect Spotify';
     }
-  }
-
-  Future<void> saveAlarms(List<SleepAlarm> next) async {
-    final previousIds = alarms.map((a) => a.id).toSet();
-    final now = DateTime.now().toUtc();
-    alarms = next.map((a) {
-      a.touch();
-      return a;
-    }).toList();
-    await store.saveAlarms(alarms);
-    unawaited(sync.enqueueAlarms(alarms));
-    for (final id in previousIds.difference(alarms.map((a) => a.id).toSet())) {
-      unawaited(sync.enqueueAlarmDeleted(id, now));
-    }
-    try {
-      await alarmScheduler.reconcile(alarms);
-      alarmsPermissionGranted = await alarmScheduler.hasPermission();
-      errorMessage = null;
-      final enabled = alarms.where((a) => a.isEnabled).toList();
-      if (enabled.isNotEmpty) {
-        final nextFire = enabled.map((a) => a.nextFireAfter()).whereType<DateTime>().toList()
-          ..sort();
-        if (nextFire.isNotEmpty) {
-          infoMessage =
-              'Alarms updated. Next: ${DateFormat('EEE HH:mm').format(nextFire.first)}'
-              '${alarmScheduler.isBestEffortOnly ? ' (keep this tab open on web)' : ''}';
-        }
-      }
-    } catch (e) {
-      errorMessage = 'Could not schedule alarms: $e';
-      alarmsPermissionGranted = await alarmScheduler.hasPermission();
-    }
-    notifyListeners();
   }
 
   Future<void> selectSpotify({required String uri, required String title}) async {
@@ -679,7 +395,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await store.savePreferences(preferences);
     unawaited(sync.enqueuePreferences(preferences));
     _refreshMusicLabel();
-    infoMessage = 'Selected "$title" for bedtime.';
+    infoMessage = 'Selected "$title" for the timer.';
     notifyListeners();
   }
 
@@ -701,263 +417,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> setRemoteOptIn(bool enabled) async {
-    if (!enabled) {
-      preferences.remoteMonitoringOptIn = false;
-      preferences.touch();
-      await store.savePreferences(preferences);
-      unawaited(sync.enqueuePreferences(preferences));
-      _stopAdminCommandPolling();
-      infoMessage = 'Remote monitoring off.';
-      errorMessage = null;
-      notifyListeners();
-      return;
-    }
-
-    try {
-      if (!admin.isRegistered) {
-        throw Exception('Sign in first, then enable remote monitoring.');
-      }
-      preferences.remoteMonitoringOptIn = true;
-      preferences.touch();
-      await store.savePreferences(preferences);
-      unawaited(sync.enqueuePreferences(preferences));
-      _startAdminCommandPolling();
-      await pollRemoteAdminAndCheckIn();
-      errorMessage = null;
-      infoMessage = 'Remote monitoring on. Share pairing code ${admin.pairingCode}.';
-    } catch (e) {
-      preferences.remoteMonitoringOptIn = false;
-      preferences.touch();
-      await store.savePreferences(preferences);
-      _stopAdminCommandPolling();
-      errorMessage =
-          'Could not reach the server at ${config.backendBaseUrl}. Check your connection and try again.\n$e';
-      infoMessage = null;
-      rethrow;
-    } finally {
-      notifyListeners();
-    }
-  }
-
-  void _startAdminCommandPolling() {
-    _stopAdminCommandPolling();
-    if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
-    _adminCommandPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (!_appInForeground) return;
-      unawaited(pollRemoteAdminAndCheckIn());
-    });
-  }
-
-  void _stopAdminCommandPolling() {
-    _adminCommandPollTimer?.cancel();
-    _adminCommandPollTimer = null;
-  }
-
-  /// Pull pending guardian commands, apply them, ack, then check in status.
-  Future<void> pollRemoteAdminAndCheckIn() async {
-    if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
-    try {
-      final commands = await admin.fetchPendingCommands();
-      final acked = <String>[];
-      for (final cmd in commands) {
-        final id = cmd['id'] as String?;
-        if (id == null) continue;
-        try {
-          await _applyAdminCommand(cmd);
-          acked.add(id);
-        } catch (_) {
-          // Leave unacked so a later poll can retry.
-        }
-      }
-      if (acked.isNotEmpty) {
-        await admin.ackCommands(acked);
-      }
-    } catch (_) {
-      // Best-effort; check-in still runs below.
-    }
-    try {
-      await checkInIfNeeded();
-    } catch (_) {}
-  }
-
-  Future<void> _applyAdminCommand(Map<String, dynamic> cmd) async {
-    final type = cmd['type'] as String? ?? '';
-    final payload = Map<String, dynamic>.from(
-      (cmd['payload'] as Map?)?.cast<String, dynamic>() ?? const {},
-    );
-    switch (type) {
-      case 'setAlarmEnabled':
-        final enabled = payload['enabled'] as bool? ?? false;
-        await _setAlarmEnabledFromRemote(enabled);
-      case 'setBedtime':
-        final hour = (payload['hour'] as num?)?.toInt();
-        final minute = (payload['minute'] as num?)?.toInt();
-        if (hour == null || minute == null) {
-          throw Exception('Invalid bedtime payload');
-        }
-        await updateBedtimePrefs(bedtimeHour: hour, bedtimeMinute: minute);
-      case 'setWakeTime':
-        final hour = (payload['hour'] as num?)?.toInt();
-        final minute = (payload['minute'] as num?)?.toInt();
-        if (hour == null || minute == null) {
-          throw Exception('Invalid wake time payload');
-        }
-        await _setWakeTimeFromRemote(hour, minute);
-      case 'startRoutine':
-        if (routineState == RoutineState.idle) {
-          await startRoutine();
-        }
-      case 'endRoutine':
-        if (routineState != RoutineState.idle) {
-          await endRoutine();
-        }
-      case 'stopAudio':
-        await audio.cancelFade();
-        fadeStarted = false;
-        await audio.stop();
-        _refreshMusicLabel();
-        notifyListeners();
-      case 'startQuietAudio':
-        await _startQuietAudioFromRemote();
-      case 'extendSleepTimer':
-        final minutes = (payload['minutes'] as num?)?.toInt();
-        if (minutes == null || minutes < 5 || minutes > 60) {
-          throw Exception('Invalid extendSleepTimer payload');
-        }
-        await _extendSleepTimerFromRemote(minutes);
-      default:
-        throw Exception('Unknown admin command: $type');
-    }
-  }
-
-  Future<void> _setWakeTimeFromRemote(int hour, int minute) async {
-    await updateBedtimePrefs(wakeHour: hour, wakeMinute: minute);
-    if (alarms.isEmpty) {
-      if (preferences.defaultAlarmEnabled) {
-        await saveAlarms([
-          SleepAlarm(
-            id: const Uuid().v4(),
-            hour: hour,
-            minute: minute,
-            repeatDays: {1, 2, 3, 4, 5},
-            isEnabled: true,
-          ),
-        ]);
-      }
-      return;
-    }
-    await saveAlarms(
-      alarms
-          .map((a) => a.copyWith(hour: hour, minute: minute))
-          .toList(),
-    );
-  }
-
-  Future<void> _startQuietAudioFromRemote() async {
-    await audio.cancelFade();
-    fadeStarted = false;
-    final ok = await audio.play(preferences.selectedQuietSound);
-    if (!ok) {
-      throw Exception(audio.lastError ?? 'Could not start quiet sound');
-    }
-    musicLabel = preferences.selectedQuietSound.displayName;
-    notifyListeners();
-    if (preferences.remoteMonitoringOptIn) {
-      unawaited(checkInIfNeeded());
-    }
-  }
-
-  Future<void> _extendSleepTimerFromRemote(int minutes) async {
-    final routine = activeRoutine;
-    if (routine == null || routineState != RoutineState.timerRunning) {
-      return;
-    }
-    final base = routine.endsAt ?? DateTime.now();
-    final from = base.isAfter(DateTime.now()) ? base : DateTime.now();
-    routine.endsAt = from.add(Duration(minutes: minutes));
-    routine.sleepTimerDurationSeconds += minutes * 60;
-    routine.touch();
-    fadeStarted = false;
-    await store.saveActiveRoutine(routine);
-    unawaited(sync.enqueueRoutine(routine));
-    notifyListeners();
-    if (preferences.remoteMonitoringOptIn) {
-      unawaited(checkInIfNeeded());
-    }
-  }
-
-  Future<void> _setAlarmEnabledFromRemote(bool enabled) async {
-    preferences.defaultAlarmEnabled = enabled;
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-
-    if (enabled) {
-      if (alarms.isEmpty) {
-        await saveAlarms([
-          SleepAlarm(
-            id: const Uuid().v4(),
-            hour: preferences.preferredWakeHour,
-            minute: preferences.preferredWakeMinute,
-            repeatDays: {1, 2, 3, 4, 5},
-            isEnabled: true,
-          ),
-        ]);
-      } else {
-        await saveAlarms(
-          alarms.map((a) => a.copyWith(isEnabled: true)).toList(),
-        );
-      }
-    } else {
-      if (alarms.isNotEmpty) {
-        await saveAlarms(
-          alarms.map((a) => a.copyWith(isEnabled: false)).toList(),
-        );
-      } else {
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> checkInIfNeeded() async {
-    if (!preferences.remoteMonitoringOptIn || !admin.isRegistered) return;
-    final enabledAlarm = _firstEnabledAlarm();
-    final next = enabledAlarm?.nextFireAfter();
-    final status = DeviceStatus(
-      batteryLevel: null,
-      isCharging: null,
-      routineActive: routineState == RoutineState.timerRunning,
-      routineStartedAt: activeRoutine?.startedAt,
-      sleepTimerEndsAt: activeRoutine?.endsAt,
-      spotifyConnected: spotify.isAuthenticated,
-      alarmEnabled: enabledAlarm != null,
-      nextAlarm: next,
-      isPlayingOwnAudio: audio.isPlaying,
-      lastCheckIn: DateTime.now(),
-      preferredBedtime: preferences.preferredBedtimeLabel,
-      currentStreak: currentStreak,
-    );
-    await admin.checkIn(status);
-    preferences.lastSuccessfulCheckInIso = status.lastCheckIn.toIso8601String();
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-    notifyListeners();
-  }
-
-  Future<void> disconnectAdmin() async {
-    // Revoke guardian tokens only — keep device auth so the user stays signed in.
-    await admin.revokeAdminTokens();
-    _stopAdminCommandPolling();
-    preferences.remoteMonitoringOptIn = false;
-    preferences.lastSuccessfulCheckInIso = null;
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-    notifyListeners();
-  }
-
   Future<void> syncNow() => sync.syncNow();
 
   Future<void> joinSyncAccount(String pairingCode) async {
@@ -965,46 +424,5 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     infoMessage = 'Joined sync account. Pairing code for this device: ${admin.pairingCode}.';
     errorMessage = sync.lastError;
     notifyListeners();
-  }
-
-  Future<void> setAdminPin(String pin) async {
-    final normalized = pin.trim();
-    if (normalized.length < 4 || normalized.length > 8 || int.tryParse(normalized) == null) {
-      throw Exception('Choose a 4–8 digit PIN.');
-    }
-    final saltBytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
-    final salt = base64UrlEncode(saltBytes);
-    final hash = sha256.convert(utf8.encode('$salt:$normalized')).toString();
-    await store.saveAdminPinHash('$salt:$hash');
-  }
-
-  Future<bool> hasAdminPin() async => (await store.loadAdminPinHash()) != null;
-
-  Future<bool> verifyAdminPin(String pin) async {
-    final stored = await store.loadAdminPinHash();
-    if (stored == null) return false;
-    final normalized = pin.trim();
-    // Phase 8+: "salt:hash". Legacy static salt kept for one upgrade cycle.
-    if (stored.contains(':') && !stored.startsWith('zy-salt:')) {
-      final sep = stored.indexOf(':');
-      final salt = stored.substring(0, sep);
-      final expected = stored.substring(sep + 1);
-      final attempt = sha256.convert(utf8.encode('$salt:$normalized')).toString();
-      return attempt == expected;
-    }
-    final legacy = sha256.convert(utf8.encode('zy-salt:$normalized')).toString();
-    if (stored == legacy || stored == 'zy-salt:$legacy') {
-      // Re-hash with a random salt on successful unlock.
-      await setAdminPin(normalized);
-      return true;
-    }
-    return false;
-  }
-
-  SleepAlarm? _firstEnabledAlarm() {
-    for (final alarm in alarms) {
-      if (alarm.isEnabled) return alarm;
-    }
-    return null;
   }
 }

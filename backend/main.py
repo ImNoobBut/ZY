@@ -713,6 +713,13 @@ def revoke_admin_tokens(
     return {"ok": True}
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalize DB/client timestamps for comparison (SQLite often returns naive UTC)."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _parse_since(since: str | None) -> datetime | None:
     if not since:
         return None
@@ -720,9 +727,7 @@ def _parse_since(since: str | None) -> datetime | None:
         value = datetime.fromisoformat(since.replace("Z", "+00:00"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid since timestamp") from exc
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value
+    return _as_utc(value)
 
 
 @app.get("/v1/sync")
@@ -743,7 +748,7 @@ def sync_pull(
             "entityType": row.entity_type,
             "entityId": row.entity_id,
             "payload": row.get_payload(),
-            "updatedAt": row.updated_at.isoformat(),
+            "updatedAt": _as_utc(row.updated_at).isoformat(),
             "deleted": row.deleted,
             "writerDeviceId": row.writer_device_id,
         }
@@ -764,9 +769,7 @@ def sync_push(
         if mutation.entityType not in ALLOWED_ENTITY_TYPES:
             rejected += 1
             continue
-        updated_at = mutation.updatedAt
-        if updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        updated_at = _as_utc(mutation.updatedAt)
 
         existing = db.scalar(
             select(SyncEntity).where(
@@ -777,10 +780,11 @@ def sync_push(
         )
         if existing is not None:
             # Last-write-wins; tie-break prefers incoming when equal.
-            if existing.updated_at > updated_at:
+            existing_updated_at = _as_utc(existing.updated_at)
+            if existing_updated_at > updated_at:
                 rejected += 1
                 continue
-            if existing.updated_at == updated_at and existing.writer_device_id > device.id:
+            if existing_updated_at == updated_at and existing.writer_device_id > device.id:
                 rejected += 1
                 continue
             existing.set_payload(mutation.payload)

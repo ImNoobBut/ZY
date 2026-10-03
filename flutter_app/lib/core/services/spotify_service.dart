@@ -45,7 +45,9 @@ class SpotifyService {
       'response_type': 'code',
       'redirect_uri': config.spotifyRedirectUri,
       'scope':
-          'user-read-private playlist-read-private playlist-read-collaborative user-modify-playback-state user-read-playback-state',
+          'user-read-private playlist-read-private playlist-read-collaborative '
+          'user-library-read user-read-recently-played '
+          'user-modify-playback-state user-read-playback-state',
       'code_challenge_method': 'S256',
       'code_challenge': challenge,
       'state': _pendingState,
@@ -177,40 +179,189 @@ class SpotifyService {
         name: map['name'] as String? ?? 'Playlist',
         uri: map['uri'] as String,
         trackCount: (map['tracks'] as Map?)?['total'] as int? ?? 0,
+        imageUrl: _firstImageUrl(map['images']),
       );
     }).toList();
   }
 
+  Future<List<SpotifyTrack>> getPlaylistTracks(String playlistId) async {
+    if (_isDemo) return _demoTracks();
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks?limit=50'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    _throwIfScopeDenied(res, 'playlist tracks');
+    if (res.statusCode != 200) throw Exception('Failed to load playlist tracks');
+    final items = (jsonDecode(res.body)['items'] as List?) ?? [];
+    return items
+        .map((item) => _parseTrack((item as Map<String, dynamic>)['track']))
+        .whereType<SpotifyTrack>()
+        .toList();
+  }
+
+  Future<List<SpotifyTrack>> getLikedTracks() async {
+    if (_isDemo) return _demoTracks(prefix: 'Liked');
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/tracks?limit=50'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    _throwIfScopeDenied(res, 'Liked Songs');
+    if (res.statusCode != 200) throw Exception('Failed to load Liked Songs');
+    final items = (jsonDecode(res.body)['items'] as List?) ?? [];
+    return items
+        .map((item) => _parseTrack((item as Map<String, dynamic>)['track']))
+        .whereType<SpotifyTrack>()
+        .toList();
+  }
+
+  Future<List<SpotifyTrack>> getRecentlyPlayed() async {
+    if (_isDemo) return _demoTracks(prefix: 'Recent');
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/player/recently-played?limit=30'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    _throwIfScopeDenied(res, 'Recently Played');
+    if (res.statusCode != 200) throw Exception('Failed to load Recently Played');
+    final items = (jsonDecode(res.body)['items'] as List?) ?? [];
+    final seen = <String>{};
+    final tracks = <SpotifyTrack>[];
+    for (final item in items) {
+      final track = _parseTrack((item as Map<String, dynamic>)['track']);
+      if (track == null || !seen.add(track.id)) continue;
+      tracks.add(track);
+    }
+    return tracks;
+  }
+
+  Future<List<SpotifyTrack>> getAlbumTracks(String albumId) async {
+    if (_isDemo) return _demoTracks(prefix: 'Album');
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/albums/$albumId/tracks?limit=50'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    if (res.statusCode != 200) throw Exception('Failed to load album tracks');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (body['items'] as List?) ?? [];
+    return items.map((item) {
+      final map = item as Map<String, dynamic>;
+      final artists = (map['artists'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final id = map['id'] as String?;
+      final uri = map['uri'] as String?;
+      if (id == null || uri == null) return null;
+      return SpotifyTrack(
+        id: id,
+        name: map['name'] as String? ?? 'Track',
+        artistName: artists.map((a) => a['name']).join(', '),
+        uri: uri,
+      );
+    }).whereType<SpotifyTrack>().toList();
+  }
+
+  /// Track-only search (kept for callers that only need tracks).
   Future<List<SpotifyTrack>> search(String query) async {
+    final result = await searchCatalog(query);
+    return result.tracks;
+  }
+
+  Future<SpotifySearchResult> searchCatalog(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return const SpotifySearchResult();
     if (_isDemo) {
-      return [
-        SpotifyTrack(
-          id: '1',
-          name: 'Quiet Evening',
-          artistName: 'Demo',
-          uri: 'spotify:track:demo1',
-        ),
-      ];
+      return SpotifySearchResult(
+        tracks: _demoTracks(),
+        albums: [
+          SpotifyAlbum(
+            id: 'demo-album',
+            name: 'Quiet Nights',
+            artistName: 'Demo',
+            uri: 'spotify:album:demo',
+            trackCount: 8,
+          ),
+        ],
+      );
     }
     await _ensureToken();
     final uri = Uri.https('api.spotify.com', '/v1/search', {
-      'q': query,
-      'type': 'track',
+      'q': q,
+      'type': 'track,album',
       'limit': '20',
     });
     final res = await http.get(uri, headers: {'Authorization': 'Bearer $_accessToken'});
     if (res.statusCode != 200) throw Exception('Search failed');
-    final items = (jsonDecode(res.body)['tracks']?['items'] as List?) ?? [];
-    return items.map((item) {
-      final map = item as Map<String, dynamic>;
-      final artists = (map['artists'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      return SpotifyTrack(
-        id: map['id'] as String,
-        name: map['name'] as String? ?? 'Track',
-        artistName: artists.map((a) => a['name']).join(', '),
-        uri: map['uri'] as String,
-      );
-    }).toList();
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final trackItems = (body['tracks']?['items'] as List?) ?? [];
+    final albumItems = (body['albums']?['items'] as List?) ?? [];
+    return SpotifySearchResult(
+      tracks: trackItems
+          .map((item) => _parseTrack(item))
+          .whereType<SpotifyTrack>()
+          .toList(),
+      albums: albumItems.map((item) {
+        final map = item as Map<String, dynamic>;
+        final artists = (map['artists'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        return SpotifyAlbum(
+          id: map['id'] as String,
+          name: map['name'] as String? ?? 'Album',
+          artistName: artists.map((a) => a['name']).join(', '),
+          uri: map['uri'] as String,
+          trackCount: map['total_tracks'] as int? ?? 0,
+          imageUrl: _firstImageUrl(map['images']),
+        );
+      }).toList(),
+    );
+  }
+
+  List<SpotifyTrack> _demoTracks({String prefix = 'Demo'}) {
+    return [
+      SpotifyTrack(
+        id: '${prefix.toLowerCase()}-1',
+        name: '$prefix Quiet Evening',
+        artistName: 'Demo',
+        uri: 'spotify:track:demo1',
+      ),
+      SpotifyTrack(
+        id: '${prefix.toLowerCase()}-2',
+        name: '$prefix Soft Rain',
+        artistName: 'Demo',
+        uri: 'spotify:track:demo2',
+      ),
+    ];
+  }
+
+  SpotifyTrack? _parseTrack(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final id = raw['id'] as String?;
+    final uri = raw['uri'] as String?;
+    if (id == null || uri == null) return null;
+    final artists = (raw['artists'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final album = raw['album'] as Map<String, dynamic>?;
+    return SpotifyTrack(
+      id: id,
+      name: raw['name'] as String? ?? 'Track',
+      artistName: artists.map((a) => a['name']).join(', '),
+      uri: uri,
+      imageUrl: _firstImageUrl(album?['images']),
+    );
+  }
+
+  String? _firstImageUrl(Object? images) {
+    if (images is! List || images.isEmpty) return null;
+    final first = images.first;
+    if (first is! Map) return null;
+    final url = first['url'];
+    return url is String && url.isNotEmpty ? url : null;
+  }
+
+  void _throwIfScopeDenied(http.Response res, String feature) {
+    if (res.statusCode != 401 && res.statusCode != 403) return;
+    throw Exception(
+      'Could not load $feature. Disconnect and Connect Spotify again '
+      'to grant library access (Liked Songs / Recently Played).',
+    );
   }
 
   Future<void> play(String spotifyUri) async {

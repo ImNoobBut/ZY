@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
+import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../ui/widgets.dart';
 
 class SleepTimerScreen extends StatelessWidget {
   const SleepTimerScreen({super.key});
 
-  static const presets = [15, 30, 45, 60, 90];
+  static const presets = [15, 30, 45, 60, 90, 120, 180, 480];
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +32,7 @@ class SleepTimerScreen extends StatelessWidget {
             children: [
               for (final m in presets)
                 ChoiceChip(
-                  label: Text('$m min'),
+                  label: Text(formatSleepTimerMinutes(m)),
                   selected: current == m,
                   onSelected: (_) => state.setDefaultTimerMinutes(m),
                 ),
@@ -42,7 +43,13 @@ class SleepTimerScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Custom: $current min'),
+                Text(
+                  formatSleepTimerMinutes(current),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 Slider(
                   value: current.toDouble().clamp(1, 180),
                   min: 1,

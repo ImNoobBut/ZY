@@ -24,6 +24,9 @@ class SettingsScreen extends StatelessWidget {
     final name = state.preferences.displayName.trim().isNotEmpty
         ? state.preferences.displayName.trim()
         : (profile?.displayName ?? '—');
+    final spotifySubtitle = !state.spotify.isAuthenticated
+        ? 'Not connected'
+        : (state.preferences.selectedSpotifyTitle ?? 'Connected — pick a track');
 
     return NightScaffold(
       title: 'Settings',
@@ -58,73 +61,18 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ListTile(
-            title: const Text('Bedtime'),
-            subtitle: Text(
-              '${state.preferences.preferredBedtimeLabel}'
-              ' · ${state.preferences.bedtimeReminderEnabled ? 'Reminder on' : 'Reminder off'}',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/bedtime'),
-          ),
-          ListTile(
-            title: const Text('Quiet sound'),
-            subtitle: Text(state.preferences.selectedQuietSound.displayName),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/quiet-sound'),
-          ),
-          ListTile(
-            title: const Text('Sleep history'),
-            subtitle: Text(
-              state.currentStreak > 0
-                  ? '${state.currentStreak}-night streak'
-                  : 'No streak yet',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/history'),
-          ),
-          ListTile(
             title: const Text('Spotify'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/spotify'),
-          ),
-          ListTile(
-            title: const Text('Alarm permission'),
             subtitle: Text(
-              state.alarmsPermissionGranted == true
-                  ? 'Granted'
-                  : (state.alarmScheduler.isBestEffortOnly
-                      ? (state.alarmScheduler.permissionNeedsSystemSettings
-                          ? 'Blocked in browser site settings'
-                          : 'Optional on web — helps background banners')
-                      : 'Needed for wake alarms — also on Alarms tab'),
+              spotifySubtitle,
               style: const TextStyle(color: AppTheme.secondaryText),
             ),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => state.requestAlarmPermission(),
-          ),
-          ListTile(
-            title: const Text('Remote check-in'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/admin'),
-          ),
-          ListTile(
-            title: const Text('Help'),
-            subtitle: const Text(
-              'New-user guide',
-              style: TextStyle(color: AppTheme.secondaryText),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/help'),
-          ),
-          ListTile(
-            title: const Text('Privacy'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed('/privacy'),
+            onTap: () => Navigator.of(context).pushNamed('/spotify'),
           ),
           const ListTile(
             title: Text('About'),
             subtitle: Text(
-              'A simple bedtime routine — music, timer, and wake alarm.',
+              'Spotify sleep timer — play music, pause when time is up.',
             ),
           ),
         ],

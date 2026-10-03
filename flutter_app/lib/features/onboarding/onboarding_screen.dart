@@ -16,9 +16,6 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int page = 0;
   int timerMinutes = 30;
-  bool alarmEnabled = true;
-  TimeOfDay bedtime = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay wake = const TimeOfDay(hour: 7, minute: 0);
   bool _didApplyOauthLanding = false;
 
   @override
@@ -31,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (state.spotify.isAuthenticated ||
         (state.infoMessage?.contains('Spotify') ?? false) ||
         (state.errorMessage?.toLowerCase().contains('spotify') ?? false)) {
-      page = 2;
+      page = 1;
     }
   }
 
@@ -47,23 +44,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Expanded(child: _page(state)),
             const SizedBox(height: 16),
             PrimaryButton(
-              label: page == 3 ? 'Start my routine' : 'Continue',
+              label: page == 2 ? 'Start' : 'Continue',
               onPressed: () async {
-                if (page < 3) {
+                if (page < 2) {
                   setState(() => page++);
                   return;
                 }
-                await state.completeOnboarding(
-                  timerMinutes: timerMinutes,
-                  alarmEnabled: alarmEnabled,
-                  bedtimeHour: bedtime.hour,
-                  bedtimeMinute: bedtime.minute,
-                  wakeHour: wake.hour,
-                  wakeMinute: wake.minute,
-                );
+                await state.completeOnboarding(timerMinutes: timerMinutes);
               },
             ),
-            if (page == 2) ...[
+            if (page == 1) ...[
               const SizedBox(height: 8),
               SecondaryButton(
                 label: 'Skip Spotify for now',
@@ -80,47 +70,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     switch (page) {
       case 0:
         return _text(
-          'Sleep better with a simple routine.',
-          'Set your music, sleep timer, and alarm in one place.',
+          'A simple Spotify sleep timer.',
+          'Connect Spotify, set a timer, and playback pauses when time is up.',
         );
       case 1:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _text(
-              'Stay on schedule',
-              state.alarmScheduler.isBestEffortOnly
-                  ? 'On web, alarms are browser reminders while this tab stays open — not a phone alarm clock.'
-                  : 'Allow notifications (and exact alarms on Android) so wake alarms can ring.',
-            ),
-            const SizedBox(height: 16),
-            PrimaryButton(
-              label: 'Allow alarms',
-              onPressed: () async {
-                await state.requestAlarmPermission();
-                if (!mounted) return;
-                final ok = state.alarmsPermissionGranted == true;
-                final hint = !ok && state.alarmScheduler.permissionNeedsSystemSettings
-                    ? state.alarmScheduler.permissionSettingsHint
-                    : (ok
-                        ? 'Alarm permission on.'
-                        : (state.alarmScheduler.isBestEffortOnly
-                            ? 'Notifications off — in-tab ringing still works if you keep this tab open.'
-                            : 'Permission denied — enable later on the Alarms tab or in Settings.'));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(hint)),
-                );
-              },
-            ),
-          ],
-        );
-      case 2:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _text(
-              'Music for bedtime',
-              'Connect Spotify or use a quiet in-app tone. Playback needs Premium + an active Spotify device.',
+              'Connect Spotify',
+              'Premium and an active Spotify device are needed for playback control.',
             ),
             const SizedBox(height: 16),
             if (state.spotify.isAuthenticated) ...[
@@ -167,12 +126,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return ListView(
           children: [
             const Text(
-              'Your routine',
+              'Default timer',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Choose defaults you can change anytime.',
+              'You can change this anytime on Home.',
               style: TextStyle(color: AppTheme.secondaryText),
             ),
             const SizedBox(height: 20),
@@ -180,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Default sleep timer'),
+                  const Text('Sleep timer length'),
                   Slider(
                     value: timerMinutes.toDouble(),
                     min: 5,
@@ -190,30 +149,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onChanged: (v) => setState(() => timerMinutes = v.round()),
                   ),
                   Text('$timerMinutes minutes'),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Default alarm'),
-                    value: alarmEnabled,
-                    onChanged: (v) => setState(() => alarmEnabled = v),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Bedtime'),
-                    trailing: Text(bedtime.format(context)),
-                    onTap: () async {
-                      final next = await showTimePicker(context: context, initialTime: bedtime);
-                      if (next != null) setState(() => bedtime = next);
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Wake time'),
-                    trailing: Text(wake.format(context)),
-                    onTap: () async {
-                      final next = await showTimePicker(context: context, initialTime: wake);
-                      if (next != null) setState(() => wake = next);
-                    },
-                  ),
                 ],
               ),
             ),

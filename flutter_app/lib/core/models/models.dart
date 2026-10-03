@@ -58,6 +58,74 @@ enum AlarmSound {
 /// Fade-out window for app-owned audio at end of sleep timer.
 const int kFadeOutSeconds = 300;
 
+/// Maximum sleep timer length (24 hours).
+const int kMaxSleepTimerMinutes = 24 * 60;
+
+/// Clamp a timer length to the allowed 1…[kMaxSleepTimerMinutes] range.
+int clampSleepTimerMinutes(int minutes) =>
+    minutes.clamp(1, kMaxSleepTimerMinutes);
+
+/// Human-readable timer length, e.g. `90 min` or `2h 30m`.
+String formatSleepTimerMinutes(int minutes) {
+  final m = clampSleepTimerMinutes(minutes);
+  if (m < 60) return '$m min';
+  final h = m ~/ 60;
+  final rem = m % 60;
+  if (rem == 0) return '${h}h';
+  return '${h}h ${rem}m';
+}
+
+/// Parse friendly timer text into minutes.
+///
+/// Accepts `90`, `2h`, `2h30`, `2h 30m`, `2:30`, `2.5h`, `30m`.
+/// Returns null when the text cannot be understood.
+int? parseSleepTimerInput(String raw) {
+  var s = raw.trim().toLowerCase();
+  if (s.isEmpty) return null;
+  s = s.replaceAll(RegExp(r'\s+'), ' ');
+
+  final asInt = int.tryParse(s);
+  if (asInt != null) return clampSleepTimerMinutes(asInt);
+
+  final colon = RegExp(r'^(\d+):([0-5]?\d)$').firstMatch(s);
+  if (colon != null) {
+    final h = int.parse(colon.group(1)!);
+    final m = int.parse(colon.group(2)!);
+    return clampSleepTimerMinutes(h * 60 + m);
+  }
+
+  final hoursDecimal = RegExp(r'^(\d+(?:\.\d+)?)\s*h(?:ours?)?$').firstMatch(s);
+  if (hoursDecimal != null) {
+    final hours = double.parse(hoursDecimal.group(1)!);
+    return clampSleepTimerMinutes((hours * 60).round());
+  }
+
+  final minutesOnly = RegExp(r'^(\d+)\s*m(?:in(?:utes?)?)?$').firstMatch(s);
+  if (minutesOnly != null) {
+    return clampSleepTimerMinutes(int.parse(minutesOnly.group(1)!));
+  }
+
+  final hoursMinutes = RegExp(
+    r'^(\d+)\s*h(?:ours?)?\s*(\d+)\s*m(?:in(?:utes?)?)?$',
+  ).firstMatch(s);
+  if (hoursMinutes != null) {
+    final h = int.parse(hoursMinutes.group(1)!);
+    final m = int.parse(hoursMinutes.group(2)!);
+    return clampSleepTimerMinutes(h * 60 + m);
+  }
+
+  // Compact forms like "2h30" / "2h30m"
+  final compact = RegExp(r'^(\d+)\s*h(?:ours?)?(\d+)\s*m?(?:in(?:utes?)?)?$')
+      .firstMatch(s);
+  if (compact != null) {
+    final h = int.parse(compact.group(1)!);
+    final m = int.parse(compact.group(2)!);
+    return clampSleepTimerMinutes(h * 60 + m);
+  }
+
+  return null;
+}
+
 class UserPreferences {
   UserPreferences({
     this.hasCompletedOnboarding = false,
@@ -459,12 +527,32 @@ class SpotifyPlaylist {
     required this.name,
     required this.uri,
     required this.trackCount,
+    this.imageUrl,
   });
 
   final String id;
   final String name;
   final String uri;
   final int trackCount;
+  final String? imageUrl;
+}
+
+class SpotifyAlbum {
+  SpotifyAlbum({
+    required this.id,
+    required this.name,
+    required this.artistName,
+    required this.uri,
+    required this.trackCount,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String name;
+  final String artistName;
+  final String uri;
+  final int trackCount;
+  final String? imageUrl;
 }
 
 class SpotifyTrack {
@@ -473,10 +561,22 @@ class SpotifyTrack {
     required this.name,
     required this.artistName,
     required this.uri,
+    this.imageUrl,
   });
 
   final String id;
   final String name;
   final String artistName;
   final String uri;
+  final String? imageUrl;
+}
+
+class SpotifySearchResult {
+  const SpotifySearchResult({
+    this.tracks = const [],
+    this.albums = const [],
+  });
+
+  final List<SpotifyTrack> tracks;
+  final List<SpotifyAlbum> albums;
 }

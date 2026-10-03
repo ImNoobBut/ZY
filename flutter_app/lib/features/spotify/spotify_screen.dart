@@ -6,6 +6,7 @@ import '../../app_state.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../ui/widgets.dart';
+import 'spotify_browse_screen.dart';
 
 class SpotifyScreen extends StatefulWidget {
   const SpotifyScreen({super.key});
@@ -17,10 +18,14 @@ class SpotifyScreen extends StatefulWidget {
 class _SpotifyScreenState extends State<SpotifyScreen> {
   final searchController = TextEditingController();
   List<SpotifyPlaylist> playlists = [];
-  List<SpotifyTrack> tracks = [];
+  List<SpotifyTrack> recentTracks = [];
+  List<SpotifyTrack> searchTracks = [];
+  List<SpotifyAlbum> searchAlbums = [];
   List<String> devices = [];
   String? error;
+  String? libraryHint;
   bool busy = false;
+  bool searching = false;
 
   @override
   void dispose() {
@@ -31,20 +36,42 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
   Future<void> _refresh() async {
     final state = context.read<AppState>();
     if (!state.spotify.isAuthenticated) return;
-    setState(() => busy = true);
-    try {
-      playlists = await state.spotify.getPlaylists();
-      devices = await state.spotify.listDeviceNames();
+    setState(() {
+      busy = true;
       error = null;
-    } catch (e) {
-      error = '$e';
-      if (!state.spotify.isAuthenticated) {
-        playlists = [];
-        tracks = [];
-        devices = [];
+      libraryHint = null;
+    });
+    try {
+      final loadedPlaylists = await state.spotify.getPlaylists();
+      final loadedDevices = await state.spotify.listDeviceNames();
+      List<SpotifyTrack> recent = [];
+      String? hint;
+      try {
+        recent = await state.spotify.getRecentlyPlayed();
+      } catch (e) {
+        hint = '$e';
       }
-    } finally {
-      if (mounted) setState(() => busy = false);
+      if (!mounted) return;
+      setState(() {
+        playlists = loadedPlaylists;
+        devices = loadedDevices;
+        recentTracks = recent;
+        libraryHint = hint;
+        busy = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = '$e';
+        if (!state.spotify.isAuthenticated) {
+          playlists = [];
+          recentTracks = [];
+          searchTracks = [];
+          searchAlbums = [];
+          devices = [];
+        }
+        busy = false;
+      });
     }
   }
 
@@ -52,21 +79,33 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
     final query = searchController.text.trim();
     if (query.isEmpty) {
       setState(() {
-        tracks = [];
+        searchTracks = [];
+        searchAlbums = [];
         error = null;
       });
       return;
     }
     final state = context.read<AppState>();
-    setState(() => busy = true);
-    try {
-      tracks = await state.spotify.search(query);
+    setState(() {
+      searching = true;
       error = null;
+    });
+    try {
+      final result = await state.spotify.searchCatalog(query);
+      if (!mounted) return;
+      setState(() {
+        searchTracks = result.tracks;
+        searchAlbums = result.albums;
+        searching = false;
+      });
     } catch (e) {
-      error = '$e';
-      tracks = [];
-    } finally {
-      if (mounted) setState(() => busy = false);
+      if (!mounted) return;
+      setState(() {
+        error = '$e';
+        searchTracks = [];
+        searchAlbums = [];
+        searching = false;
+      });
     }
   }
 
@@ -76,14 +115,68 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
     try {
       await state.disconnectSpotify();
       playlists = [];
-      tracks = [];
+      recentTracks = [];
+      searchTracks = [];
+      searchAlbums = [];
       devices = [];
       error = null;
+      libraryHint = null;
     } catch (e) {
       error = '$e';
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> _selectTrack(SpotifyTrack track) async {
+    final state = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final title = track.artistName.isEmpty
+        ? track.name
+        : '${track.name} — ${track.artistName}';
+    await state.selectSpotify(uri: track.uri, title: title);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('Selected "$title" for the timer')),
+    );
+  }
+
+  Future<void> _openBrowse(SpotifyBrowseScreen screen) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => screen),
+    );
+    if (changed == true && mounted) setState(() {});
+  }
+
+  Future<void> _openPlaylist(SpotifyPlaylist playlist) {
+    return _openBrowse(
+      SpotifyBrowseScreen(
+        kind: SpotifyBrowseKind.playlist,
+        title: playlist.name,
+        contextUri: playlist.uri,
+        playlistId: playlist.id,
+      ),
+    );
+  }
+
+  Future<void> _openAlbum(SpotifyAlbum album) {
+    return _openBrowse(
+      SpotifyBrowseScreen(
+        kind: SpotifyBrowseKind.album,
+        title: album.name,
+        contextUri: album.uri,
+        albumId: album.id,
+      ),
+    );
+  }
+
+  Future<void> _openLiked() {
+    return _openBrowse(
+      const SpotifyBrowseScreen(
+        kind: SpotifyBrowseKind.liked,
+        title: 'Liked Songs',
+      ),
+    );
   }
 
   @override
@@ -95,27 +188,44 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final selectedTitle = state.preferences.selectedSpotifyTitle;
+    final hasSelection = state.preferences.selectedSpotifyUri != null &&
+        (selectedTitle?.isNotEmpty ?? false);
+    final query = searchController.text.trim();
+    final showSearchResults = query.isNotEmpty;
+
     return NightScaffold(
       title: 'Spotify',
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          ZyCard(
-            child: Text(
-              [
-                'Redirect URI: ${state.config.spotifyRedirectUri}',
-                'Add that exact URL in the Spotify Developer Dashboard → Redirect URIs.',
-                '',
-                kIsWeb
-                    ? 'After login you return to /callback; the app exchanges the code and clears it from the address bar.'
-                    : 'After login, Android App Links / iOS Universal Links return into this app to finish OAuth.',
-                '',
-                'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.',
-              ].join('\n'),
-              style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text(
+              'Setup help',
+              style: TextStyle(color: AppTheme.secondaryText),
             ),
+            children: [
+              ZyCard(
+                child: Text(
+                  [
+                    'Redirect URI: ${state.config.spotifyRedirectUri}',
+                    'Add that exact URL in the Spotify Developer Dashboard → Redirect URIs.',
+                    '',
+                    kIsWeb
+                        ? 'After login you return to /callback; the app exchanges the code and clears it from the address bar.'
+                        : 'After login, Android App Links / iOS Universal Links return into this app to finish OAuth.',
+                    '',
+                    'A play 404 means no Spotify Connect device — open Spotify, play a track once, then Refresh devices.',
+                    '',
+                    'After app updates that add library access, Disconnect and Connect again once.',
+                  ].join('\n'),
+                  style: const TextStyle(color: AppTheme.secondaryText, height: 1.4),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (!state.spotify.isAuthenticated) ...[
             PrimaryButton(
               label: 'Connect Spotify',
@@ -144,12 +254,38 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Connected ✓', style: TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    state.preferences.selectedSpotifyTitle ?? 'Nothing selected yet',
-                    style: const TextStyle(color: AppTheme.secondaryText),
+                  const Text(
+                    'Now selected',
+                    style: TextStyle(
+                      color: AppTheme.tertiaryText,
+                      fontSize: 13,
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasSelection ? selectedTitle! : 'Nothing selected yet',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: hasSelection
+                          ? AppTheme.primaryText
+                          : AppTheme.secondaryText,
+                    ),
+                  ),
+                  if (hasSelection) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await state.clearSpotifySelection();
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Selection cleared')),
+                        );
+                      },
+                      child: const Text('Clear selection'),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   Text(
                     devices.isEmpty
                         ? 'Devices: none — open Spotify and play a track once.'
@@ -166,73 +302,193 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
             ),
             const SizedBox(height: 8),
             SecondaryButton(
-              label: 'Refresh devices',
+              label: 'Refresh',
               onPressed: busy ? null : _refresh,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: searchController,
                     decoration: const InputDecoration(
-                      hintText: 'Search',
+                      hintText: 'Search tracks & albums',
                       filled: true,
                     ),
                     onSubmitted: (_) => _search(),
+                    onChanged: (value) {
+                      if (value.trim().isEmpty) {
+                        setState(() {
+                          searchTracks = [];
+                          searchAlbums = [];
+                        });
+                      }
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: busy ? null : _search,
+                  onPressed: (busy || searching) ? null : _search,
                   child: const Text('Search'),
                 ),
               ],
             ),
-            if (busy) ...[
+            if (busy || searching) ...[
               const SizedBox(height: 8),
               const LinearProgressIndicator(),
             ],
-            if (tracks.isEmpty && searchController.text.trim().isNotEmpty && !busy)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'No tracks found.',
+            if (showSearchResults) ...[
+              if (searchTracks.isEmpty &&
+                  searchAlbums.isEmpty &&
+                  !searching &&
+                  !busy)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text(
+                    'No results.',
+                    style: TextStyle(color: AppTheme.tertiaryText),
+                  ),
+                ),
+              if (searchAlbums.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Albums',
                   style: TextStyle(color: AppTheme.tertiaryText),
                 ),
-              ),
-            const SizedBox(height: 12),
-            ...tracks.map(
-              (t) => ListTile(
-                title: Text(t.name),
-                subtitle: Text(t.artistName),
-                onTap: () => state.selectSpotify(
-                  uri: t.uri,
-                  title: '${t.name} — ${t.artistName}',
+                ...searchAlbums.map(
+                  (a) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: _SpotifyArtThumb(
+                      imageUrl: a.imageUrl,
+                      icon: Icons.album,
+                    ),
+                    title: Text(a.name),
+                    subtitle: Text(
+                      a.artistName.isEmpty
+                          ? '${a.trackCount} tracks'
+                          : '${a.artistName} · ${a.trackCount} tracks',
+                      style: const TextStyle(color: AppTheme.secondaryText),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openAlbum(a),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text('Your playlists', style: TextStyle(color: AppTheme.tertiaryText)),
-            if (playlists.isEmpty && !busy)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'No playlists yet.',
+              ],
+              if (searchTracks.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Tracks',
                   style: TextStyle(color: AppTheme.tertiaryText),
                 ),
-              ),
-            ...playlists.map(
-              (p) => ListTile(
-                title: Text(p.name),
-                subtitle: Text('${p.trackCount} tracks'),
-                trailing: TextButton(
-                  onPressed: () => state.selectSpotify(uri: p.uri, title: p.name),
-                  child: const Text('Select'),
+                ...searchTracks.map(
+                  (t) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: _SpotifyArtThumb(
+                      imageUrl: t.imageUrl,
+                      icon: Icons.music_note,
+                    ),
+                    title: Text(t.name),
+                    subtitle: Text(
+                      t.artistName,
+                      style: const TextStyle(color: AppTheme.secondaryText),
+                    ),
+                    onTap: () => _selectTrack(t),
+                  ),
+                ),
+              ],
+            ] else ...[
+              const SizedBox(height: 20),
+              const Text(
+                'Library',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
+              if (libraryHint != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  libraryHint!,
+                  style: const TextStyle(color: AppTheme.secondaryText, height: 1.35),
+                ),
+              ],
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const _SpotifyArtThumb(icon: Icons.favorite),
+                title: const Text('Liked Songs'),
+                subtitle: const Text(
+                  'Browse your saved tracks',
+                  style: TextStyle(color: AppTheme.secondaryText),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openLiked,
+              ),
+              if (recentTracks.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Recently played',
+                  style: TextStyle(color: AppTheme.tertiaryText),
+                ),
+                ...recentTracks.take(15).map(
+                      (t) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: _SpotifyArtThumb(
+                          imageUrl: t.imageUrl,
+                          icon: Icons.history,
+                        ),
+                        title: Text(t.name),
+                        subtitle: Text(
+                          t.artistName,
+                          style: const TextStyle(color: AppTheme.secondaryText),
+                        ),
+                        onTap: () => _selectTrack(t),
+                      ),
+                    ),
+              ],
+              const SizedBox(height: 12),
+              const Text(
+                'Your playlists',
+                style: TextStyle(color: AppTheme.tertiaryText),
+              ),
+              if (playlists.isEmpty && !busy)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'No playlists yet.',
+                    style: TextStyle(color: AppTheme.tertiaryText),
+                  ),
+                ),
+              ...playlists.map(
+                (p) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: _SpotifyArtThumb(
+                    imageUrl: p.imageUrl,
+                    icon: Icons.queue_music,
+                  ),
+                  title: Text(p.name),
+                  subtitle: Text(
+                    '${p.trackCount} tracks',
+                    style: const TextStyle(color: AppTheme.secondaryText),
+                  ),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final name = p.name;
+                      await state.selectSpotify(uri: p.uri, title: name);
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Selected "$name" for the timer'),
+                        ),
+                      );
+                    },
+                    child: const Text('Select'),
+                  ),
+                  onTap: () => _openPlaylist(p),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             SecondaryButton(
               label: 'Disconnect',
               onPressed: busy ? null : _disconnect,
@@ -244,10 +500,50 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
           ],
           if (state.infoMessage != null) ...[
             const SizedBox(height: 12),
-            Text(state.infoMessage!, style: const TextStyle(color: AppTheme.secondaryText)),
+            Text(
+              state.infoMessage!,
+              style: const TextStyle(color: AppTheme.secondaryText),
+            ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _SpotifyArtThumb extends StatelessWidget {
+  const _SpotifyArtThumb({this.imageUrl, required this.icon});
+
+  final String? imageUrl;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl;
+    if (url != null && url.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.network(
+          url,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallback(),
+        ),
+      );
+    }
+    return _fallback();
+  }
+
+  Widget _fallback() {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(icon, color: AppTheme.tertiaryText, size: 22),
     );
   }
 }

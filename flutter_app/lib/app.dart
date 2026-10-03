@@ -3,17 +3,10 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'core/theme/app_theme.dart';
-import 'features/admin/admin_screen.dart';
-import 'features/alarms/alarms_screen.dart';
 import 'features/auth/auth_screen.dart';
-import 'features/help/help_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
-import 'features/privacy/privacy_screen.dart';
-import 'features/settings/bedtime_settings_screen.dart';
-import 'features/settings/quiet_sound_screen.dart';
 import 'features/settings/settings_screen.dart';
-import 'features/settings/sleep_history_screen.dart';
 import 'features/settings/sync_settings_screen.dart';
 import 'features/spotify/spotify_screen.dart';
 
@@ -29,12 +22,6 @@ class ZyApp extends StatelessWidget {
       home: const _RootGate(),
       routes: {
         '/spotify': (_) => const SpotifyScreen(),
-        '/admin': (_) => const AdminScreen(),
-        '/privacy': (_) => const PrivacyScreen(),
-        '/help': (_) => const HelpScreen(),
-        '/bedtime': (_) => const BedtimeSettingsScreen(),
-        '/quiet-sound': (_) => const QuietSoundScreen(),
-        '/history': (_) => const SleepHistoryScreen(),
         '/sync': (_) => const SyncSettingsScreen(),
       },
     );
@@ -76,7 +63,6 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final pages = [
       const HomeScreen(),
-      const AlarmsScreen(),
       const SettingsScreen(),
     ];
     return Scaffold(
@@ -89,7 +75,6 @@ class _MainShellState extends State<MainShell> {
         onDestinationSelected: (i) => setState(() => index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.nightlight_round), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.alarm), label: 'Alarms'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),

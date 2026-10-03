@@ -169,12 +169,6 @@ class SyncService extends ChangeNotifier {
       await store.savePreferences(preferences);
     }
     await enqueuePreferences(preferences);
-    final alarms = await store.loadAlarms();
-    if (alarms.isNotEmpty) await enqueueAlarms(alarms);
-    final sessions = await store.loadSessions();
-    for (final s in sessions) {
-      await enqueueSession(s);
-    }
     final routine = await store.loadActiveRoutine();
     await enqueueRoutine(routine);
   }

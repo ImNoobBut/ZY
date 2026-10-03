@@ -1,111 +1,149 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sleeping_routine_for_zy/core/models/models.dart';
-import 'package:sleeping_routine_for_zy/core/services/alarm_scheduler_stub.dart';
-import 'package:sleeping_routine_for_zy/core/services/streak_calculator.dart';
+import 'package:sleeping_routine_for_zy/core/services/sync_service.dart';
 
 void main() {
-  group('Phase 9 — models & contracts', () {
+  group('sleep timer minutes', () {
+    test('clampSleepTimerMinutes allows 1 through 24 hours', () {
+      expect(clampSleepTimerMinutes(0), 1);
+      expect(clampSleepTimerMinutes(-5), 1);
+      expect(clampSleepTimerMinutes(1), 1);
+      expect(clampSleepTimerMinutes(180), 180);
+      expect(clampSleepTimerMinutes(1440), 1440);
+      expect(clampSleepTimerMinutes(1441), 1440);
+      expect(kMaxSleepTimerMinutes, 24 * 60);
+    });
+
+    test('formatSleepTimerMinutes shows hours for long durations', () {
+      expect(formatSleepTimerMinutes(45), '45 min');
+      expect(formatSleepTimerMinutes(60), '1h');
+      expect(formatSleepTimerMinutes(90), '1h 30m');
+      expect(formatSleepTimerMinutes(150), '2h 30m');
+      expect(formatSleepTimerMinutes(1440), '24h');
+    });
+
+    test('parseSleepTimerInput accepts friendly formats', () {
+      expect(parseSleepTimerInput('90'), 90);
+      expect(parseSleepTimerInput('30m'), 30);
+      expect(parseSleepTimerInput('2h'), 120);
+      expect(parseSleepTimerInput('2.5h'), 150);
+      expect(parseSleepTimerInput('2:30'), 150);
+      expect(parseSleepTimerInput('2h 30m'), 150);
+      expect(parseSleepTimerInput('2h30'), 150);
+      expect(parseSleepTimerInput(''), isNull);
+      expect(parseSleepTimerInput('abc'), isNull);
+      expect(parseSleepTimerInput('9999'), 1440);
+    });
+  });
+
+  group('lite models & sync contracts', () {
     test('UserPreferences round-trip json', () {
       final original = UserPreferences(
         hasCompletedOnboarding: true,
         defaultSleepTimerSeconds: 45 * 60,
-        remoteMonitoringOptIn: true,
-        bedtimeReminderEnabled: false,
-        selectedQuietSound: QuietSound.rain,
+        selectedSpotifyUri: 'spotify:track:abc',
+        selectedSpotifyTitle: 'Calm night',
       );
       final decoded = UserPreferences.fromJson(original.toJson());
       expect(decoded.hasCompletedOnboarding, isTrue);
       expect(decoded.defaultSleepTimerSeconds, 45 * 60);
-      expect(decoded.remoteMonitoringOptIn, isTrue);
-      expect(decoded.bedtimeReminderEnabled, isFalse);
-      expect(decoded.selectedQuietSound, QuietSound.rain);
+      expect(decoded.selectedSpotifyUri, 'spotify:track:abc');
+      expect(decoded.selectedSpotifyTitle, 'Calm night');
     });
 
-    test('remoteMonitoringOptIn defaults off (privacy)', () {
-      expect(UserPreferences().remoteMonitoringOptIn, isFalse);
-    });
-
-    test('SleepAlarm round-trip preserves schedule fields', () {
-      final alarm = SleepAlarm(
-        id: 'a1',
-        hour: 7,
-        minute: 15,
-        repeatDays: {1, 3, 5},
-        label: 'Wake',
-        isEnabled: true,
-        sound: AlarmSound.chime,
-        deviceSoundUri: 'content://media/external/audio/media/1',
+    test('SleepRoutine round-trip preserves timer fields', () {
+      final started = DateTime.utc(2026, 10, 3, 12);
+      final ends = started.add(const Duration(minutes: 30));
+      final routine = SleepRoutine(
+        id: 'r1',
+        sleepTimerDurationSeconds: 30 * 60,
+        musicSource: MusicSource.spotify,
+        startedAt: started,
+        endsAt: ends,
       );
-      final decoded = SleepAlarm.fromJson(alarm.toJson());
-      expect(decoded.hour, 7);
-      expect(decoded.minute, 15);
-      expect(decoded.repeatDays, {1, 3, 5});
-      expect(decoded.isEnabled, isTrue);
-      expect(decoded.sound, AlarmSound.chime);
-      expect(decoded.deviceSoundUri, 'content://media/external/audio/media/1');
-      expect(decoded.soundDisplayName, 'Device sound');
+      final decoded = SleepRoutine.fromJson(routine.toJson());
+      expect(decoded.id, 'r1');
+      expect(decoded.musicSource, MusicSource.spotify);
+      expect(decoded.sleepTimerDurationSeconds, 30 * 60);
+      expect(decoded.startedAt, started);
+      expect(decoded.endsAt, ends);
     });
+  });
 
-    test('SleepAlarm fromJson defaults sound for legacy payloads', () {
-      final decoded = SleepAlarm.fromJson({
-        'id': 'legacy',
-        'hour': 6,
-        'minute': 30,
-        'label': 'Wake',
-        'isEnabled': true,
-        'repeatDays': <int>[],
-      });
-      expect(decoded.sound, AlarmSound.systemDefault);
-      expect(decoded.deviceSoundUri, isNull);
-      expect(AlarmSound.fromId('default'), AlarmSound.systemDefault);
-      expect(decoded.toJson()['sound'], 'default');
-    });
-
-    test('DeviceStatus check-in payload includes opt-in fields', () {
-      final status = DeviceStatus(
-        batteryLevel: 0.55,
-        isCharging: false,
-        routineActive: true,
-        spotifyConnected: true,
-        alarmEnabled: true,
-        isPlayingOwnAudio: false,
-        lastCheckIn: DateTime.utc(2026, 9, 26, 12),
-        preferredBedtime: '22:30',
-        currentStreak: 3,
-      );
-      final json = status.toJson();
-      expect(json['preferredBedtime'], '22:30');
-      expect(json['currentStreak'], 3);
-      expect(json['spotifyConnected'], isTrue);
-    });
-
-    test('StreakCalculator counts consecutive nights', () {
-      final now = DateTime(2026, 9, 26, 23, 0);
-      final sessions = [
-        SleepSessionRecord(
-          id: '1',
-          startedAt: DateTime(2026, 9, 26, 22, 0),
-          completedAt: DateTime(2026, 9, 26, 22, 30),
-        ),
-        SleepSessionRecord(
-          id: '2',
-          startedAt: DateTime(2026, 9, 25, 22, 0),
-          completedAt: DateTime(2026, 9, 25, 22, 30),
+  group('outbox push must not drop in-flight mutations', () {
+    test('keeps mutations added while push was in flight', () {
+      final pushedAt = DateTime.utc(2026, 9, 26, 12);
+      final pushed = [
+        SyncMutation(
+          entityType: 'preferences',
+          entityId: 'default',
+          payload: const {'v': 1},
+          updatedAt: pushedAt,
         ),
       ];
-      final streak = StreakCalculator.currentStreak(
-        sessions: sessions,
-        bedtimeHour: 22,
-        bedtimeMinute: 0,
-        now: now,
+      final midFlight = SyncMutation(
+        entityType: 'routine',
+        entityId: 'active',
+        payload: const {'id': 'r2'},
+        updatedAt: DateTime.utc(2026, 9, 26, 12, 1),
       );
-      expect(streak, 2);
+      final current = [...pushed, midFlight];
+
+      final remaining = SyncService.outboxAfterSuccessfulPush(
+        pushed: pushed,
+        current: current,
+      );
+
+      expect(remaining, hasLength(1));
+      expect(remaining.single.entityId, 'active');
     });
 
-    test('Stub alarm scheduler is honest about unsupported env', () {
-      final scheduler = createAlarmScheduler();
-      expect(scheduler.isBestEffortOnly, isTrue);
-      expect(scheduler.limitationCopy.toLowerCase(), contains('not scheduled'));
+    test('keeps newer upsert for same entity enqueued during push', () {
+      final oldAt = DateTime.utc(2026, 9, 26, 12);
+      final newAt = DateTime.utc(2026, 9, 26, 12, 5);
+      final pushed = [
+        SyncMutation(
+          entityType: 'preferences',
+          entityId: 'default',
+          payload: const {'v': 1},
+          updatedAt: oldAt,
+        ),
+      ];
+      final current = [
+        SyncMutation(
+          entityType: 'preferences',
+          entityId: 'default',
+          payload: const {'v': 2},
+          updatedAt: newAt,
+        ),
+      ];
+
+      final remaining = SyncService.outboxAfterSuccessfulPush(
+        pushed: pushed,
+        current: current,
+      );
+
+      expect(remaining, hasLength(1));
+      expect(remaining.single.payload['v'], 2);
+    });
+
+    test('clears only the exact pushed snapshot (regression: wipe-all)', () {
+      final at = DateTime.utc(2026, 9, 26, 12);
+      final pushed = [
+        SyncMutation(
+          entityType: 'routine',
+          entityId: 'active',
+          payload: const {},
+          updatedAt: at,
+        ),
+      ];
+
+      final remaining = SyncService.outboxAfterSuccessfulPush(
+        pushed: pushed,
+        current: pushed,
+      );
+
+      expect(remaining, isEmpty);
     });
   });
 }

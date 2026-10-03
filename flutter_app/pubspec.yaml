@@ -1,7 +1,7 @@
 name: sleeping_routine_for_zy
-description: Sleeping Routine for Zy — Flutter port (Android + Web). Swift iOS app remains the native source of truth.
+description: Spotify sleep timer for Zy — Flutter (Android + Web). Lite build - timer pauses Spotify when time is up.
 publish_to: "none"
-version: 0.9.1+2
+version: 0.10.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -20,11 +20,6 @@ dependencies:
   uuid: ^4.5.1
   intl: ^0.19.0
   url_launcher: ^6.3.1
-  audioplayers: ^6.1.0
-  flutter_local_notifications: ^18.0.1
-  timezone: ^0.10.0
-  flutter_timezone: ^4.0.0
-  permission_handler: ^11.3.1
   app_links: ^6.3.3
   web: ^1.1.1
   connectivity_plus: ^6.1.1
@@ -36,5 +31,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/audio/
