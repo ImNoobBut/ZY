@@ -8,7 +8,7 @@ import '../../ui/widgets.dart';
 
 enum SpotifyBrowseKind { playlist, album, liked }
 
-/// Browse tracks inside a playlist, album, or Liked Songs and select one (or the whole context).
+/// Browse tracks inside a playlist, album, or Liked Songs and multi-select tracks (or the whole context).
 class SpotifyBrowseScreen extends StatefulWidget {
   const SpotifyBrowseScreen({
     super.key,
@@ -71,19 +71,21 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
     }
   }
 
-  Future<void> _selectTrack(SpotifyTrack track) async {
+  Future<void> _toggleTrack(SpotifyTrack track) async {
     final state = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     final title = track.artistName.isEmpty
         ? track.name
         : '${track.name} — ${track.artistName}';
-    await state.selectSpotify(uri: track.uri, title: title);
+    final added = await state.toggleSpotifyTrack(uri: track.uri, title: title);
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('Selected "$title" for the timer')),
+      SnackBar(
+        content: Text(
+          added ? 'Added "$title" to the queue' : 'Removed "$title" from the queue',
+        ),
+      ),
     );
-    navigator.pop(true);
   }
 
   Future<void> _selectContext() async {
@@ -92,7 +94,7 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
     final state = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    await state.selectSpotify(uri: uri, title: widget.title);
+    await state.selectSpotifyContext(uri: uri, title: widget.title);
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(content: Text('Selected "${widget.title}" for the timer')),
@@ -124,7 +126,10 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
     final canSelectContext = widget.contextUri != null && widget.contextUri!.isNotEmpty;
+    final contextSelected = canSelectContext &&
+        state.preferences.isSpotifyUriSelected(widget.contextUri!);
     return NightScaffold(
       title: widget.title,
       child: Column(
@@ -134,8 +139,10 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: PrimaryButton(
                 label: widget.kind == SpotifyBrowseKind.album
-                    ? 'Select this album'
-                    : 'Select this playlist',
+                    ? (contextSelected ? 'Album selected' : 'Select this album')
+                    : (contextSelected
+                        ? 'Playlist selected'
+                        : 'Select this playlist'),
                 onPressed: busy ? null : _selectContext,
               ),
             ),
@@ -177,6 +184,8 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
                     itemCount: tracks.length,
                     itemBuilder: (context, index) {
                       final t = tracks[index];
+                      final selected =
+                          state.preferences.isSpotifyUriSelected(t.uri);
                       return ListTile(
                         leading: _ArtThumb(imageUrl: t.imageUrl, icon: Icons.music_note),
                         title: Text(t.name),
@@ -184,7 +193,12 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
                           t.artistName,
                           style: const TextStyle(color: AppTheme.secondaryText),
                         ),
-                        onTap: () => _selectTrack(t),
+                        trailing: selected
+                            ? const Icon(Icons.check_circle,
+                                color: AppTheme.accent)
+                            : const Icon(Icons.circle_outlined,
+                                color: AppTheme.tertiaryText),
+                        onTap: () => _toggleTrack(t),
                       );
                     },
                   ),

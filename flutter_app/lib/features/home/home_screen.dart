@@ -20,13 +20,15 @@ class HomeScreen extends StatelessWidget {
     final active = state.routineState == RoutineState.timerRunning;
     final remaining = state.remaining();
     final currentMinutes = state.preferences.defaultSleepTimerSeconds ~/ 60;
-    final hasSpotify = state.spotify.isAuthenticated &&
-        state.preferences.selectedSpotifyUri != null;
+    final spotifyConnected = state.spotify.isAuthenticated;
+    final hasSelection = state.preferences.hasSpotifySelection;
     final musicLabel = active
         ? state.musicLabel
-        : (hasSpotify
-            ? (state.preferences.selectedSpotifyTitle ?? 'Spotify')
-            : 'Choose Spotify music');
+        : (!spotifyConnected
+            ? 'Connect Spotify'
+            : (hasSelection
+                ? (state.preferences.spotifySelectionLabel ?? 'Spotify')
+                : 'Current Spotify playback'));
     final headline = active
         ? 'Sleep timer running'
         : greetingFor(DateTime.now(), state.preferences.displayName);
@@ -43,7 +45,7 @@ class HomeScreen extends StatelessWidget {
           Text(
             active
                 ? 'Spotify will pause when the timer ends.'
-                : 'Set a timer, play Spotify, pause when time is up.',
+                : 'Set a timer. Use what is already playing on Spotify, or pick tracks in the app.',
             style: const TextStyle(color: AppTheme.secondaryText),
           ),
           const SizedBox(height: 20),
@@ -95,10 +97,16 @@ class HomeScreen extends StatelessWidget {
               }
             },
           ),
-          if (!hasSpotify) ...[
+          if (!spotifyConnected) ...[
             const SizedBox(height: 8),
             SecondaryButton(
-              label: 'Connect / choose Spotify',
+              label: 'Connect Spotify',
+              onPressed: () => Navigator.of(context).pushNamed('/spotify'),
+            ),
+          ] else if (!hasSelection) ...[
+            const SizedBox(height: 8),
+            SecondaryButton(
+              label: 'Optional: choose tracks',
               onPressed: () => Navigator.of(context).pushNamed('/spotify'),
             ),
           ],

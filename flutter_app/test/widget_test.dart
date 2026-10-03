@@ -49,6 +49,40 @@ void main() {
       expect(decoded.defaultSleepTimerSeconds, 45 * 60);
       expect(decoded.selectedSpotifyUri, 'spotify:track:abc');
       expect(decoded.selectedSpotifyTitle, 'Calm night');
+      expect(decoded.selectedSpotifyItems, hasLength(1));
+      expect(decoded.selectedSpotifyItems.first.uri, 'spotify:track:abc');
+      expect(decoded.spotifySelectionLabel, 'Calm night');
+    });
+
+    test('UserPreferences migrates legacy Spotify scalars into items', () {
+      final decoded = UserPreferences.fromJson({
+        'selectedSpotifyUri': 'spotify:track:legacy',
+        'selectedSpotifyTitle': 'Legacy track',
+      });
+      expect(decoded.selectedSpotifyItems, hasLength(1));
+      expect(decoded.selectedSpotifyItems.first.uri, 'spotify:track:legacy');
+      expect(decoded.selectedSpotifyItems.first.title, 'Legacy track');
+      expect(decoded.hasSpotifySelection, isTrue);
+    });
+
+    test('UserPreferences multi Spotify selection mirrors first item', () {
+      final original = UserPreferences(
+        selectedSpotifyItems: const [
+          SpotifySelectionItem(uri: 'spotify:track:a', title: 'Track A'),
+          SpotifySelectionItem(uri: 'spotify:track:b', title: 'Track B'),
+        ],
+      );
+      final json = original.toJson();
+      expect(json['selectedSpotifyUri'], 'spotify:track:a');
+      expect(json['selectedSpotifyTitle'], 'Track A');
+      expect(json['selectedSpotifyItems'], hasLength(2));
+
+      final decoded = UserPreferences.fromJson(json);
+      expect(decoded.selectedSpotifyItems, hasLength(2));
+      expect(decoded.selectedSpotifyUri, 'spotify:track:a');
+      expect(decoded.selectedSpotifyTitle, 'Track A');
+      expect(decoded.spotifySelectionLabel, 'Track A + 1 more');
+      expect(decoded.isSpotifyUriSelected('spotify:track:b'), isTrue);
     });
 
     test('SleepRoutine round-trip preserves timer fields', () {

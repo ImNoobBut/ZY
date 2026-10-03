@@ -126,6 +126,25 @@ int? parseSleepTimerInput(String raw) {
   return null;
 }
 
+class SpotifySelectionItem {
+  const SpotifySelectionItem({required this.uri, required this.title});
+
+  final String uri;
+  final String title;
+
+  bool get isTrack => uri.contains(':track:');
+  bool get isContext => !isTrack;
+
+  Map<String, dynamic> toJson() => {'uri': uri, 'title': title};
+
+  factory SpotifySelectionItem.fromJson(Map<String, dynamic> json) {
+    return SpotifySelectionItem(
+      uri: json['uri'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+    );
+  }
+}
+
 class UserPreferences {
   UserPreferences({
     this.hasCompletedOnboarding = false,
@@ -138,12 +157,22 @@ class UserPreferences {
     this.defaultAlarmEnabled = true,
     this.bedtimeReminderEnabled = true,
     this.selectedQuietSound = QuietSound.softTone,
-    this.selectedSpotifyUri,
-    this.selectedSpotifyTitle,
+    List<SpotifySelectionItem>? selectedSpotifyItems,
+    String? selectedSpotifyUri,
+    String? selectedSpotifyTitle,
     this.remoteMonitoringOptIn = false,
     this.lastSuccessfulCheckInIso,
     DateTime? updatedAt,
-  }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  })  : selectedSpotifyItems = _resolveSpotifyItems(
+          selectedSpotifyItems,
+          selectedSpotifyUri,
+          selectedSpotifyTitle,
+        ),
+        selectedSpotifyUri = null,
+        selectedSpotifyTitle = null,
+        updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true) {
+    syncSpotifyLegacyFields();
+  }
 
   bool hasCompletedOnboarding;
   /// Greeting name; synced across devices via preferences.
@@ -156,7 +185,11 @@ class UserPreferences {
   bool defaultAlarmEnabled;
   bool bedtimeReminderEnabled;
   QuietSound selectedQuietSound;
+  /// Ordered track queue, or a single playlist/album context.
+  List<SpotifySelectionItem> selectedSpotifyItems;
+  /// Mirrored from [selectedSpotifyItems].first for older clients.
   String? selectedSpotifyUri;
+  /// Mirrored from [selectedSpotifyItems].first for older clients.
   String? selectedSpotifyTitle;
   bool remoteMonitoringOptIn;
   String? lastSuccessfulCheckInIso;
@@ -164,31 +197,77 @@ class UserPreferences {
 
   void touch() => updatedAt = DateTime.now().toUtc();
 
+  void syncSpotifyLegacyFields() {
+    if (selectedSpotifyItems.isEmpty) {
+      selectedSpotifyUri = null;
+      selectedSpotifyTitle = null;
+    } else {
+      selectedSpotifyUri = selectedSpotifyItems.first.uri;
+      selectedSpotifyTitle = selectedSpotifyItems.first.title;
+    }
+  }
+
+  bool get hasSpotifySelection => selectedSpotifyItems.isNotEmpty;
+
+  bool get isSpotifyContextSelection =>
+      selectedSpotifyItems.length == 1 && selectedSpotifyItems.first.isContext;
+
+  bool isSpotifyUriSelected(String uri) =>
+      selectedSpotifyItems.any((item) => item.uri == uri);
+
+  String? get spotifySelectionLabel {
+    if (selectedSpotifyItems.isEmpty) return null;
+    final first = selectedSpotifyItems.first.title;
+    if (first.isEmpty) {
+      return selectedSpotifyItems.length == 1
+          ? 'Spotify'
+          : 'Spotify + ${selectedSpotifyItems.length - 1} more';
+    }
+    if (selectedSpotifyItems.length == 1) return first;
+    return '$first + ${selectedSpotifyItems.length - 1} more';
+  }
+
   String get preferredBedtimeLabel {
     final h = preferredBedtimeHour.toString().padLeft(2, '0');
     final m = preferredBedtimeMinute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 
-  Map<String, dynamic> toJson() => {
-        'hasCompletedOnboarding': hasCompletedOnboarding,
-        'displayName': displayName,
-        'defaultSleepTimerSeconds': defaultSleepTimerSeconds,
-        'preferredBedtimeHour': preferredBedtimeHour,
-        'preferredBedtimeMinute': preferredBedtimeMinute,
-        'preferredWakeHour': preferredWakeHour,
-        'preferredWakeMinute': preferredWakeMinute,
-        'defaultAlarmEnabled': defaultAlarmEnabled,
-        'bedtimeReminderEnabled': bedtimeReminderEnabled,
-        'selectedQuietSound': selectedQuietSound.name,
-        'selectedSpotifyUri': selectedSpotifyUri,
-        'selectedSpotifyTitle': selectedSpotifyTitle,
-        'remoteMonitoringOptIn': remoteMonitoringOptIn,
-        'lastSuccessfulCheckInIso': lastSuccessfulCheckInIso,
-        'updatedAt': updatedAt.toUtc().toIso8601String(),
-      };
+  Map<String, dynamic> toJson() {
+    syncSpotifyLegacyFields();
+    return {
+      'hasCompletedOnboarding': hasCompletedOnboarding,
+      'displayName': displayName,
+      'defaultSleepTimerSeconds': defaultSleepTimerSeconds,
+      'preferredBedtimeHour': preferredBedtimeHour,
+      'preferredBedtimeMinute': preferredBedtimeMinute,
+      'preferredWakeHour': preferredWakeHour,
+      'preferredWakeMinute': preferredWakeMinute,
+      'defaultAlarmEnabled': defaultAlarmEnabled,
+      'bedtimeReminderEnabled': bedtimeReminderEnabled,
+      'selectedQuietSound': selectedQuietSound.name,
+      'selectedSpotifyItems':
+          selectedSpotifyItems.map((item) => item.toJson()).toList(),
+      'selectedSpotifyUri': selectedSpotifyUri,
+      'selectedSpotifyTitle': selectedSpotifyTitle,
+      'remoteMonitoringOptIn': remoteMonitoringOptIn,
+      'lastSuccessfulCheckInIso': lastSuccessfulCheckInIso,
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
+    };
+  }
 
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['selectedSpotifyItems'];
+    List<SpotifySelectionItem>? items;
+    if (rawItems is List) {
+      items = rawItems
+          .whereType<Map>()
+          .map((raw) => SpotifySelectionItem.fromJson(
+                Map<String, dynamic>.from(raw),
+              ))
+          .where((item) => item.uri.isNotEmpty)
+          .toList();
+    }
     return UserPreferences(
       hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
       displayName: (json['displayName'] as String?)?.trim() ?? '',
@@ -200,6 +279,7 @@ class UserPreferences {
       defaultAlarmEnabled: json['defaultAlarmEnabled'] as bool? ?? true,
       bedtimeReminderEnabled: json['bedtimeReminderEnabled'] as bool? ?? true,
       selectedQuietSound: QuietSound.fromId(json['selectedQuietSound'] as String?),
+      selectedSpotifyItems: items,
       selectedSpotifyUri: json['selectedSpotifyUri'] as String?,
       selectedSpotifyTitle: json['selectedSpotifyTitle'] as String?,
       remoteMonitoringOptIn: json['remoteMonitoringOptIn'] as bool? ?? false,
@@ -207,6 +287,23 @@ class UserPreferences {
       updatedAt: _parseDate(json['updatedAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
+  }
+
+  static List<SpotifySelectionItem> _resolveSpotifyItems(
+    List<SpotifySelectionItem>? items,
+    String? legacyUri,
+    String? legacyTitle,
+  ) {
+    if (items != null) {
+      return List<SpotifySelectionItem>.from(
+        items.where((item) => item.uri.isNotEmpty),
+      );
+    }
+    final uri = legacyUri?.trim() ?? '';
+    if (uri.isEmpty) return <SpotifySelectionItem>[];
+    return [
+      SpotifySelectionItem(uri: uri, title: legacyTitle?.trim() ?? ''),
+    ];
   }
 }
 

@@ -128,16 +128,20 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
     }
   }
 
-  Future<void> _selectTrack(SpotifyTrack track) async {
+  Future<void> _toggleTrack(SpotifyTrack track) async {
     final state = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
     final title = track.artistName.isEmpty
         ? track.name
         : '${track.name} — ${track.artistName}';
-    await state.selectSpotify(uri: track.uri, title: title);
+    final added = await state.toggleSpotifyTrack(uri: track.uri, title: title);
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('Selected "$title" for the timer')),
+      SnackBar(
+        content: Text(
+          added ? 'Added "$title" to the queue' : 'Removed "$title" from the queue',
+        ),
+      ),
     );
   }
 
@@ -188,9 +192,8 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final selectedTitle = state.preferences.selectedSpotifyTitle;
-    final hasSelection = state.preferences.selectedSpotifyUri != null &&
-        (selectedTitle?.isNotEmpty ?? false);
+    final selectedItems = state.preferences.selectedSpotifyItems;
+    final hasSelection = state.preferences.hasSpotifySelection;
     final query = searchController.text.trim();
     final showSearchResults = query.isNotEmpty;
 
@@ -262,17 +265,52 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    hasSelection ? selectedTitle! : 'Nothing selected yet',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: hasSelection
-                          ? AppTheme.primaryText
-                          : AppTheme.secondaryText,
+                  if (!hasSelection)
+                    const Text(
+                      'Nothing selected yet',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.secondaryText,
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: selectedItems.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 4),
+                        itemBuilder: (context, index) {
+                          final item = selectedItems[index];
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.title.isEmpty ? item.uri : item.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.primaryText,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Remove',
+                                onPressed: () =>
+                                    state.removeSpotifySelection(item.uri),
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: AppTheme.secondaryText,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
                   if (hasSelection) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 4),
                     TextButton(
                       onPressed: () async {
                         final messenger = ScaffoldMessenger.of(context);
@@ -282,7 +320,7 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                           const SnackBar(content: Text('Selection cleared')),
                         );
                       },
-                      child: const Text('Clear selection'),
+                      child: const Text('Clear all'),
                     ),
                   ],
                   const SizedBox(height: 8),
@@ -381,19 +419,27 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                   style: TextStyle(color: AppTheme.tertiaryText),
                 ),
                 ...searchTracks.map(
-                  (t) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: _SpotifyArtThumb(
-                      imageUrl: t.imageUrl,
-                      icon: Icons.music_note,
-                    ),
-                    title: Text(t.name),
-                    subtitle: Text(
-                      t.artistName,
-                      style: const TextStyle(color: AppTheme.secondaryText),
-                    ),
-                    onTap: () => _selectTrack(t),
-                  ),
+                  (t) {
+                    final selected =
+                        state.preferences.isSpotifyUriSelected(t.uri);
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: _SpotifyArtThumb(
+                        imageUrl: t.imageUrl,
+                        icon: Icons.music_note,
+                      ),
+                      title: Text(t.name),
+                      subtitle: Text(
+                        t.artistName,
+                        style: const TextStyle(color: AppTheme.secondaryText),
+                      ),
+                      trailing: selected
+                          ? const Icon(Icons.check_circle, color: AppTheme.accent)
+                          : const Icon(Icons.circle_outlined,
+                              color: AppTheme.tertiaryText),
+                      onTap: () => _toggleTrack(t),
+                    );
+                  },
                 ),
               ],
             ] else ...[
@@ -448,19 +494,28 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                   style: TextStyle(color: AppTheme.tertiaryText),
                 ),
                 ...recentTracks.take(15).map(
-                      (t) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: _SpotifyArtThumb(
-                          imageUrl: t.imageUrl,
-                          icon: Icons.history,
-                        ),
-                        title: Text(t.name),
-                        subtitle: Text(
-                          t.artistName,
-                          style: const TextStyle(color: AppTheme.secondaryText),
-                        ),
-                        onTap: () => _selectTrack(t),
-                      ),
+                      (t) {
+                        final selected =
+                            state.preferences.isSpotifyUriSelected(t.uri);
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: _SpotifyArtThumb(
+                            imageUrl: t.imageUrl,
+                            icon: Icons.history,
+                          ),
+                          title: Text(t.name),
+                          subtitle: Text(
+                            t.artistName,
+                            style: const TextStyle(color: AppTheme.secondaryText),
+                          ),
+                          trailing: selected
+                              ? const Icon(Icons.check_circle,
+                                  color: AppTheme.accent)
+                              : const Icon(Icons.circle_outlined,
+                                  color: AppTheme.tertiaryText),
+                          onTap: () => _toggleTrack(t),
+                        );
+                      },
                     ),
               ],
               const SizedBox(height: 12),
@@ -492,7 +547,10 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                     onPressed: () async {
                       final messenger = ScaffoldMessenger.of(context);
                       final name = p.name;
-                      await state.selectSpotify(uri: p.uri, title: name);
+                      await state.selectSpotifyContext(
+                        uri: p.uri,
+                        title: name,
+                      );
                       if (!mounted) return;
                       messenger.showSnackBar(
                         SnackBar(
@@ -500,7 +558,11 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                         ),
                       );
                     },
-                    child: const Text('Select'),
+                    child: Text(
+                      state.preferences.isSpotifyUriSelected(p.uri)
+                          ? 'Selected'
+                          : 'Select',
+                    ),
                   ),
                   onTap: () => _openPlaylist(p),
                 ),

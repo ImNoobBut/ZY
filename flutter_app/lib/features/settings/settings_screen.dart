@@ -26,7 +26,8 @@ class SettingsScreen extends StatelessWidget {
         : (profile?.displayName ?? '—');
     final spotifySubtitle = !state.spotify.isAuthenticated
         ? 'Not connected'
-        : (state.preferences.selectedSpotifyTitle ?? 'Connected — pick a track');
+        : (state.preferences.spotifySelectionLabel ??
+            'Connected — uses current playback if nothing picked');
 
     return NightScaffold(
       title: 'Settings',

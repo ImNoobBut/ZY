@@ -278,17 +278,32 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         routineState = RoutineState.idle;
         return;
       }
-      final uri = preferences.selectedSpotifyUri;
-      if (uri == null || uri.isEmpty) {
-        errorMessage = 'Choose a Spotify track or playlist before starting.';
-        routineState = RoutineState.idle;
-        return;
-      }
+      final items = preferences.selectedSpotifyItems;
 
       routineState = RoutineState.starting;
       try {
-        await spotify.play(uri);
-        musicLabel = preferences.selectedSpotifyTitle ?? 'Spotify';
+        if (items.isNotEmpty) {
+          if (preferences.isSpotifyContextSelection) {
+            await spotify.play(items.first.uri);
+          } else {
+            await spotify.playUris(items.map((item) => item.uri).toList());
+          }
+          musicLabel = preferences.spotifySelectionLabel ?? 'Spotify';
+        } else {
+          // No in-app selection: attach timer to whatever Spotify is already on.
+          final nowPlaying = await spotify.getNowPlaying();
+          if (nowPlaying == null) {
+            errorMessage =
+                'Nothing is playing on Spotify. Start music there, or choose '
+                'a track/playlist in the app, then try again.';
+            routineState = RoutineState.idle;
+            return;
+          }
+          if (!nowPlaying.isPlaying) {
+            await spotify.resume();
+          }
+          musicLabel = nowPlaying.title;
+        }
         routineState = RoutineState.playing;
       } catch (e) {
         errorMessage =
@@ -377,36 +392,75 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _refreshMusicLabel() {
-    if (preferences.selectedSpotifyTitle != null && spotify.isAuthenticated) {
-      musicLabel = preferences.selectedSpotifyTitle!;
-    } else if (spotify.isAuthenticated && preferences.selectedSpotifyUri != null) {
-      musicLabel = 'Spotify';
-    } else if (spotify.isAuthenticated) {
-      musicLabel = 'Spotify connected — pick a track';
-    } else {
+    if (!spotify.isAuthenticated) {
       musicLabel = 'Connect Spotify';
+      return;
+    }
+    final label = preferences.spotifySelectionLabel;
+    if (label != null) {
+      musicLabel = label;
+    } else {
+      musicLabel = 'Spotify — current playback or pick a track';
     }
   }
 
-  Future<void> selectSpotify({required String uri, required String title}) async {
-    preferences.selectedSpotifyUri = uri;
-    preferences.selectedSpotifyTitle = title;
+  Future<void> _persistSpotifySelection({String? info}) async {
+    preferences.syncSpotifyLegacyFields();
     preferences.touch();
     await store.savePreferences(preferences);
     unawaited(sync.enqueuePreferences(preferences));
     _refreshMusicLabel();
-    infoMessage = 'Selected "$title" for the timer.';
+    if (info != null) infoMessage = info;
     notifyListeners();
   }
 
+  /// Toggle a track in the queue. Returns true if added, false if removed.
+  Future<bool> toggleSpotifyTrack({
+    required String uri,
+    required String title,
+  }) async {
+    if (preferences.isSpotifyContextSelection) {
+      preferences.selectedSpotifyItems = [];
+    }
+    final existing = preferences.selectedSpotifyItems.indexWhere(
+      (item) => item.uri == uri,
+    );
+    final added = existing < 0;
+    if (added) {
+      preferences.selectedSpotifyItems.add(
+        SpotifySelectionItem(uri: uri, title: title),
+      );
+    } else {
+      preferences.selectedSpotifyItems.removeAt(existing);
+    }
+    await _persistSpotifySelection(
+      info: added
+          ? 'Added "$title" to the timer queue.'
+          : 'Removed "$title" from the timer queue.',
+    );
+    return added;
+  }
+
+  Future<void> selectSpotifyContext({
+    required String uri,
+    required String title,
+  }) async {
+    preferences.selectedSpotifyItems = [
+      SpotifySelectionItem(uri: uri, title: title),
+    ];
+    await _persistSpotifySelection(
+      info: 'Selected "$title" for the timer.',
+    );
+  }
+
+  Future<void> removeSpotifySelection(String uri) async {
+    preferences.selectedSpotifyItems.removeWhere((item) => item.uri == uri);
+    await _persistSpotifySelection();
+  }
+
   Future<void> clearSpotifySelection() async {
-    preferences.selectedSpotifyUri = null;
-    preferences.selectedSpotifyTitle = null;
-    preferences.touch();
-    await store.savePreferences(preferences);
-    unawaited(sync.enqueuePreferences(preferences));
-    _refreshMusicLabel();
-    notifyListeners();
+    preferences.selectedSpotifyItems = [];
+    await _persistSpotifySelection();
   }
 
   Future<void> disconnectSpotify() async {

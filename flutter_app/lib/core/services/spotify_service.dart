@@ -288,13 +288,16 @@ class SpotifyService {
       );
     }
     await _ensureToken();
+    // Spotify search limit max is 10 (Feb 2026 API change); higher values → 400 Invalid limit.
     final uri = Uri.https('api.spotify.com', '/v1/search', {
       'q': q,
       'type': 'track,album',
-      'limit': '20',
+      'limit': '10',
     });
     final res = await http.get(uri, headers: {'Authorization': 'Bearer $_accessToken'});
-    if (res.statusCode != 200) throw Exception('Search failed');
+    if (res.statusCode != 200) {
+      throw Exception('Search failed (${res.statusCode}): ${res.body}');
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final trackItems = (body['tracks']?['items'] as List?) ?? [];
     final albumItems = (body['albums']?['items'] as List?) ?? [];
@@ -368,18 +371,31 @@ class SpotifyService {
   }
 
   Future<void> play(String spotifyUri) async {
+    if (spotifyUri.contains(':track:')) {
+      await playUris([spotifyUri]);
+      return;
+    }
+    await _playBody({'context_uri': spotifyUri});
+  }
+
+  /// Start a track queue (order preserved). Empty list is a no-op error.
+  Future<void> playUris(List<String> uris) async {
+    final cleaned = uris.where((u) => u.isNotEmpty).toList();
+    if (cleaned.isEmpty) {
+      throw Exception('No Spotify tracks to play.');
+    }
+    await _playBody({'uris': cleaned});
+  }
+
+  Future<void> _playBody(Map<String, dynamic> body) async {
     if (_isDemo) return;
     await _ensureToken();
-    final body = spotifyUri.contains(':track:')
-        ? {'uris': [spotifyUri]}
-        : {'context_uri': spotifyUri};
 
-    Future<http.Response> sendPlay({String? deviceId}) {
-      final uri = deviceId == null
-          ? Uri.parse('https://api.spotify.com/v1/me/player/play')
-          : Uri.parse('https://api.spotify.com/v1/me/player/play?device_id=$deviceId');
+    Future<http.Response> sendPlay(String deviceId) {
       return http.put(
-        uri,
+        Uri.parse(
+          'https://api.spotify.com/v1/me/player/play?device_id=$deviceId',
+        ),
         headers: {
           'Authorization': 'Bearer $_accessToken',
           'Content-Type': 'application/json',
@@ -388,24 +404,51 @@ class SpotifyService {
       );
     }
 
-    var res = await sendPlay();
-    if (res.statusCode == 404) {
-      final deviceId = await _firstAvailableDeviceId();
-      if (deviceId != null) {
-        await _transferPlayback(deviceId);
-        await Future<void>.delayed(const Duration(milliseconds: 400));
-        res = await sendPlay(deviceId: deviceId);
-      }
-    }
-    if (res.statusCode == 404 || res.statusCode == 403) {
+    bool ok(http.Response res) =>
+        res.statusCode >= 200 && res.statusCode < 300;
+
+    // Always target a concrete device. Play without device_id often returns
+    // NO_ACTIVE_DEVICE even when /devices lists an "active" target.
+    final deviceIds = await _availableDeviceIds();
+    if (deviceIds.isEmpty) {
       throw Exception(
         'No active Spotify device. Open Spotify on your phone or desktop, '
         'play any track once, then retry. Premium is required for remote play.',
       );
     }
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw Exception('Playback request failed (${res.statusCode}): ${res.body}');
+
+    http.Response? lastRes;
+    for (final deviceId in deviceIds) {
+      lastRes = await sendPlay(deviceId);
+      if (ok(lastRes)) return;
+
+      // Stale "active" sessions: wake the device, then retry play.
+      if (lastRes.statusCode == 404 || lastRes.statusCode == 502) {
+        final woke = await _transferPlayback(deviceId);
+        if (!woke) continue;
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        lastRes = await sendPlay(deviceId);
+        if (ok(lastRes)) return;
+
+        // Second wake with play:true helps some desktop/speaker targets.
+        final forced = await _transferPlayback(deviceId, startPlaying: true);
+        if (!forced) continue;
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+        lastRes = await sendPlay(deviceId);
+        if (ok(lastRes)) return;
+      }
     }
+
+    if (lastRes != null &&
+        (lastRes.statusCode == 404 || lastRes.statusCode == 403)) {
+      throw Exception(
+        'No active Spotify device. Open Spotify on your phone or desktop, '
+        'play any track once, then retry. Premium is required for remote play.',
+      );
+    }
+    throw Exception(
+      'Playback request failed (${lastRes?.statusCode}): ${lastRes?.body}',
+    );
   }
 
   /// Visible Connect targets (empty until Spotify is open somewhere).
@@ -432,26 +475,40 @@ class SpotifyService {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Future<String?> _firstAvailableDeviceId() async {
+  /// Prefer active, then unrestricted devices (Echo/Cast often reject remote play).
+  Future<List<String>> _availableDeviceIds() async {
     final res = await http.get(
       Uri.parse('https://api.spotify.com/v1/me/player/devices'),
       headers: {'Authorization': 'Bearer $_accessToken'},
     );
-    if (res.statusCode != 200) return null;
+    if (res.statusCode != 200) return [];
     final devices = (jsonDecode(res.body)['devices'] as List?) ?? [];
-    String? fallback;
+
+    final active = <String>[];
+    final ready = <String>[];
+    final restricted = <String>[];
     for (final raw in devices) {
       final map = raw as Map<String, dynamic>;
       final id = map['id'] as String?;
       if (id == null || id.isEmpty) continue;
-      if (map['is_active'] == true) return id;
-      fallback ??= id;
+      final isRestricted = map['is_restricted'] == true;
+      final isActive = map['is_active'] == true;
+      if (isActive && !isRestricted) {
+        active.add(id);
+      } else if (!isRestricted) {
+        ready.add(id);
+      } else {
+        restricted.add(id);
+      }
     }
-    return fallback;
+    return [...active, ...ready, ...restricted];
   }
 
-  Future<void> _transferPlayback(String deviceId) async {
-    await http.put(
+  Future<bool> _transferPlayback(
+    String deviceId, {
+    bool startPlaying = false,
+  }) async {
+    final res = await http.put(
       Uri.parse('https://api.spotify.com/v1/me/player'),
       headers: {
         'Authorization': 'Bearer $_accessToken',
@@ -459,9 +516,55 @@ class SpotifyService {
       },
       body: jsonEncode({
         'device_ids': [deviceId],
-        'play': false,
+        'play': startPlaying,
       }),
     );
+    // Spotify returns 204 on success; 404 if the target is gone.
+    return res.statusCode >= 200 && res.statusCode < 300;
+  }
+
+  /// Current player session, or null when Spotify has no active playback.
+  Future<SpotifyNowPlaying?> getNowPlaying() async {
+    if (_isDemo) {
+      return const SpotifyNowPlaying(
+        isPlaying: true,
+        title: 'Demo track',
+        artist: 'Demo',
+      );
+    }
+    await _ensureToken();
+    final res = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/player'),
+      headers: {'Authorization': 'Bearer $_accessToken'},
+    );
+    // 204 = no active device / nothing in the player.
+    if (res.statusCode == 204 || res.body.isEmpty) return null;
+    if (res.statusCode != 200) return null;
+
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    final item = map['item'] as Map<String, dynamic>?;
+    final title = item?['name'] as String?;
+    final artists = (item?['artists'] as List?)
+            ?.map((a) => (a as Map<String, dynamic>)['name'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .join(', ') ??
+        '';
+    final label = title == null || title.isEmpty
+        ? 'Spotify'
+        : (artists.isEmpty ? title : '$title — $artists');
+    return SpotifyNowPlaying(
+      isPlaying: map['is_playing'] == true,
+      title: label,
+      artist: artists,
+      uri: item?['uri'] as String?,
+    );
+  }
+
+  /// Resume whatever is already loaded on the active device.
+  Future<void> resume() async {
+    if (_isDemo) return;
+    await _ensureToken();
+    await _playBody(<String, dynamic>{});
   }
 
   Future<void> pause() async {
@@ -535,4 +638,18 @@ class SpotifyService {
   String _uuidLike() => List.generate(16, (_) => Random.secure().nextInt(256))
       .map((b) => b.toRadixString(16).padLeft(2, '0'))
       .join();
+}
+
+class SpotifyNowPlaying {
+  const SpotifyNowPlaying({
+    required this.isPlaying,
+    required this.title,
+    this.artist = '',
+    this.uri,
+  });
+
+  final bool isPlaying;
+  final String title;
+  final String artist;
+  final String? uri;
 }
