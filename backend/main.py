@@ -8,11 +8,15 @@ Dashboard: http://127.0.0.1:8081/
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import secrets
+import smtplib
 import time
 import uuid
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
@@ -32,11 +36,14 @@ from db import (
     AdminToken,
     Device,
     DeviceStatusRow,
+    PasswordReset,
     SyncEntity,
     get_db,
     init_db,
     utcnow,
 )
+
+log = logging.getLogger("srz.auth")
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
@@ -44,7 +51,10 @@ TOKEN_TTL_SECONDS = 3600
 ADMIN_TOKEN_TTL_SECONDS = TOKEN_TTL_SECONDS * 24
 PAIRING_RATE_LIMIT = 20
 AUTH_RATE_LIMIT = 15
+RESET_RATE_LIMIT = 5
 RATE_WINDOW_SECONDS = 60.0
+RESET_CODE_TTL_SECONDS = 15 * 60
+RESET_CODE_PEPPER = (os.environ.get("RESET_CODE_PEPPER") or "zy-sleep-reset").strip()
 
 app = FastAPI(title="Sleeping Routine for Zy — Admin + Sync API", version="0.9.1")
 
@@ -144,6 +154,16 @@ class AuthMePatchBody(BaseModel):
     displayName: str = Field(min_length=1, max_length=120)
 
 
+class AuthForgotPasswordBody(BaseModel):
+    email: str
+
+
+class AuthResetPasswordBody(BaseModel):
+    email: str
+    code: str = Field(min_length=4, max_length=12)
+    password: str = Field(min_length=8, max_length=72)
+
+
 class SyncMutation(BaseModel):
     entityType: str = Field(description="preferences | alarm | session | routine")
     entityId: str
@@ -184,6 +204,13 @@ def _normalize_email(raw: str) -> str:
     return raw.strip().lower()
 
 
+def _email_looks_valid(email: str) -> bool:
+    if "@" not in email or len(email) < 5 or len(email) > 320:
+        return False
+    local, _, domain = email.partition("@")
+    return bool(local) and "." in domain and " " not in email
+
+
 def _hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -193,6 +220,57 @@ def _verify_password(password: str, password_hash: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except ValueError:
         return False
+
+
+def _hash_reset_code(account_id: str, code: str) -> str:
+    raw = f"{account_id}:{code.strip()}:{RESET_CODE_PEPPER}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _smtp_configured() -> bool:
+    return bool((os.environ.get("SMTP_HOST") or "").strip())
+
+
+def _send_reset_email(*, to_email: str, code: str, display_name: str | None) -> bool:
+    """Send reset code via SMTP when configured. Returns True if sent."""
+    host = (os.environ.get("SMTP_HOST") or "").strip()
+    if not host:
+        return False
+    port = int((os.environ.get("SMTP_PORT") or "587").strip() or "587")
+    user = (os.environ.get("SMTP_USER") or "").strip()
+    password = os.environ.get("SMTP_PASSWORD") or ""
+    from_addr = (os.environ.get("SMTP_FROM") or user or "noreply@localhost").strip()
+    app_name = (os.environ.get("APP_DISPLAY_NAME") or "Zy Sleep").strip()
+    greeting = (display_name or "").strip() or "there"
+
+    msg = EmailMessage()
+    msg["Subject"] = f"{app_name} password reset code"
+    msg["From"] = from_addr
+    msg["To"] = to_email
+    msg.set_content(
+        f"Hi {greeting},\n\n"
+        f"Your {app_name} password reset code is: {code}\n\n"
+        f"It expires in 15 minutes. If you did not request this, you can ignore this email.\n"
+    )
+
+    try:
+        with smtplib.SMTP(host, port, timeout=20) as smtp:
+            smtp.ehlo()
+            if (os.environ.get("SMTP_STARTTLS") or "1").strip() not in ("0", "false", "False"):
+                smtp.starttls()
+                smtp.ehlo()
+            if user:
+                smtp.login(user, password)
+            smtp.send_message(msg)
+        return True
+    except Exception:
+        log.exception("Failed to send password reset email to %s", to_email)
+        return False
+
+
+def _dev_expose_reset_code() -> bool:
+    flag = (os.environ.get("AUTH_DEV_EXPOSE_RESET_CODE") or "").strip().lower()
+    return flag in ("1", "true", "yes", "on")
 
 
 def _normalize_pairing_code(raw: str) -> str:
@@ -370,7 +448,7 @@ def auth_register(
 ) -> dict[str, Any]:
     _rate_limit(_client_key(request, "auth"), limit=AUTH_RATE_LIMIT)
     email = _normalize_email(body.email)
-    if "@" not in email or len(email) < 3:
+    if not _email_looks_valid(email):
         raise HTTPException(status_code=400, detail="Invalid email")
     display_name = body.displayName.strip()
     if not display_name:
@@ -423,6 +501,114 @@ def auth_login(
     db.commit()
     db.refresh(device)
     return _device_auth_payload(device, account)
+
+
+@app.post("/v1/auth/forgot-password")
+def auth_forgot_password(
+    body: AuthForgotPasswordBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Always returns a generic success message to avoid email enumeration."""
+    _rate_limit(_client_key(request, "reset"), limit=RESET_RATE_LIMIT)
+    email = _normalize_email(body.email)
+    generic = {
+        "ok": True,
+        "message": (
+            "If an account exists for that email, a reset code has been sent. "
+            "It expires in 15 minutes."
+        ),
+    }
+    if not _email_looks_valid(email):
+        return generic
+
+    account = db.scalar(select(Account).where(Account.email == email))
+    if account is None or not account.password_hash:
+        return generic
+
+    # Invalidate prior unused codes for this account.
+    now = time.time()
+    prior = db.scalars(
+        select(PasswordReset).where(
+            PasswordReset.account_id == account.id,
+            PasswordReset.used_at.is_(None),
+        )
+    ).all()
+    for row in prior:
+        row.used_at = utcnow()
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    reset = PasswordReset(
+        id=str(uuid.uuid4()),
+        account_id=account.id,
+        code_hash=_hash_reset_code(account.id, code),
+        expires_at=now + RESET_CODE_TTL_SECONDS,
+    )
+    db.add(reset)
+    db.commit()
+
+    sent = _send_reset_email(
+        to_email=email,
+        code=code,
+        display_name=account.display_name,
+    )
+    if not sent:
+        log.warning(
+            "Password reset code for %s (SMTP not configured or send failed): %s",
+            email,
+            code,
+        )
+
+    if _dev_expose_reset_code():
+        generic = {**generic, "devResetCode": code, "emailDelivery": "smtp" if sent else "log"}
+    return generic
+
+
+@app.post("/v1/auth/reset-password")
+def auth_reset_password(
+    body: AuthResetPasswordBody,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _rate_limit(_client_key(request, "reset"), limit=RESET_RATE_LIMIT)
+    email = _normalize_email(body.email)
+    code = "".join(ch for ch in body.code.strip() if ch.isdigit())
+    if not _email_looks_valid(email) or len(code) != 6:
+        raise HTTPException(status_code=400, detail="Invalid email or reset code")
+
+    account = db.scalar(select(Account).where(Account.email == email))
+    if account is None or not account.password_hash:
+        raise HTTPException(status_code=400, detail="Invalid email or reset code")
+
+    now = time.time()
+    candidates = db.scalars(
+        select(PasswordReset)
+        .where(
+            PasswordReset.account_id == account.id,
+            PasswordReset.used_at.is_(None),
+            PasswordReset.expires_at >= now,
+        )
+        .order_by(PasswordReset.created_at.desc())
+    ).all()
+
+    match: PasswordReset | None = None
+    expected = _hash_reset_code(account.id, code)
+    for row in candidates:
+        if secrets.compare_digest(row.code_hash, expected):
+            match = row
+            break
+
+    if match is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    account.password_hash = _hash_password(body.password)
+    match.used_at = utcnow()
+    # Burn any other outstanding codes.
+    for row in candidates:
+        if row.id != match.id:
+            row.used_at = utcnow()
+    db.commit()
+    return {"ok": True, "message": "Password updated. You can sign in with your new password."}
 
 
 @app.get("/v1/auth/me")

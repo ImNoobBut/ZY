@@ -15,7 +15,9 @@ Use Home for tonight’s routine, Alarms for wake times, and Settings for prefer
 
 ## Account
 
-Create an account with your display name, email, and a password of at least 8 characters, or sign in if you already have one.
+Sign in with your email and password, or register with a display name, email, and a password of at least 8 characters.
+
+If you forget your password, use **Forgot password?** on the sign-in screen. We email a 6-digit code (valid for 15 minutes); enter it with a new password to regain access.
 
 Your name appears in greetings. Change it later under Settings → Account. Sign out from the same place.
 

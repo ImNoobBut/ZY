@@ -89,6 +89,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  static String _userFacingError(Object e) {
+    final raw = '$e';
+    if (raw.startsWith('Exception: ')) {
+      return raw.substring('Exception: '.length);
+    }
+    return raw;
+  }
+
   Future<void> registerAccount({
     required String email,
     required String password,
@@ -111,7 +119,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(sync.syncNow(forcePullAll: true));
       infoMessage = 'Account created.';
     } catch (e) {
-      errorMessage = '$e';
+      errorMessage = _userFacingError(e);
       rethrow;
     } finally {
       busy = false;
@@ -138,7 +146,46 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(sync.syncNow(forcePullAll: true));
       infoMessage = 'Signed in.';
     } catch (e) {
-      errorMessage = '$e';
+      errorMessage = _userFacingError(e);
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> requestPasswordReset({required String email}) async {
+    busy = true;
+    errorMessage = null;
+    infoMessage = null;
+    notifyListeners();
+    try {
+      final result = await auth.requestPasswordReset(email: email);
+      infoMessage = result.message;
+      return result.devResetCode;
+    } catch (e) {
+      errorMessage = _userFacingError(e);
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    busy = true;
+    errorMessage = null;
+    infoMessage = null;
+    notifyListeners();
+    try {
+      await auth.resetPassword(email: email, code: code, password: password);
+      infoMessage = 'Password updated. You can sign in now.';
+    } catch (e) {
+      errorMessage = _userFacingError(e);
       rethrow;
     } finally {
       busy = false;

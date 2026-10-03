@@ -46,6 +46,8 @@ Optional: `docker build -t srz-api ./backend && docker run -p 8081:8081 -e PORT=
 |--------|------|------|---------|
 | POST | `/v1/auth/register` | none | Email/password signup + device; returns tokens + profile |
 | POST | `/v1/auth/login` | none | Email/password login; new device on account |
+| POST | `/v1/auth/forgot-password` | none | Request a 6-digit reset code (generic response; email via SMTP when configured) |
+| POST | `/v1/auth/reset-password` | none | Exchange email + code + new password |
 | GET | `/v1/auth/me` | Bearer device | Current account email + display name |
 | PATCH | `/v1/auth/me` | Bearer device | Update display name |
 | POST | `/v1/devices/register` | none | New anonymous account + device; returns tokens + pairing code |
@@ -71,12 +73,28 @@ Allowed admin command types: `setAlarmEnabled`, `setBedtime`, `setWakeTime`, `st
 - Entity types: `preferences`, `alarm`, `session`, `routine`.
 - Conflict rule: **last-write-wins** on `updatedAt`, then `writerDeviceId` tie-break.
 
+## Password reset email (optional SMTP)
+
+Forgot-password sends a 6-digit code that expires in 15 minutes. Without SMTP, the API still creates the code and **logs it** (local/dev). Set these env vars to email codes:
+
+| Variable | Purpose |
+|----------|---------|
+| `SMTP_HOST` | SMTP server (required to enable sending) |
+| `SMTP_PORT` | Default `587` |
+| `SMTP_USER` / `SMTP_PASSWORD` | Auth when required by the host |
+| `SMTP_FROM` | From address (defaults to `SMTP_USER`) |
+| `SMTP_STARTTLS` | Default `1`; set `0` to disable STARTTLS |
+| `APP_DISPLAY_NAME` | Brand in the email subject/body (default `Zy Sleep`) |
+| `RESET_CODE_PEPPER` | Extra secret mixed into code hashes |
+| `AUTH_DEV_EXPOSE_RESET_CODE` | When `1`, include `devResetCode` in the forgot-password JSON (local testing only) |
+
 ## Production notes
 
 - Prefer Neon/Postgres over SQLite on free PaaS (ephemeral disks).
 - Terminate TLS at the platform edge (Render does this).
 - Set `CORS_ORIGINS` to the exact Pages URL(s).
 - `/health` is liveness-only — it must never return pairing codes or tokens.
-- Admin dashboard tokens expire after 24h; use **Log out** or re-pair to revoke. Auth and pairing routes are rate-limited per client IP.
+- Admin dashboard tokens expire after 24h; use **Log out** or re-pair to revoke. Auth, reset, and pairing routes are rate-limited per client IP.
 - Pairing codes are 6-digit secrets: treat them like one-time PINs and do not log them.
 - After deploy, restart once so `ensure_admin_token_expiry_column` adds `expires_at` on existing DBs.
+- Do not enable `AUTH_DEV_EXPOSE_RESET_CODE` in production.

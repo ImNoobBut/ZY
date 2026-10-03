@@ -33,6 +33,17 @@ class UserProfile {
   }
 }
 
+class PasswordResetRequestResult {
+  const PasswordResetRequestResult({
+    required this.message,
+    this.devResetCode,
+  });
+
+  final String message;
+  /// Present only when the backend has AUTH_DEV_EXPOSE_RESET_CODE enabled.
+  final String? devResetCode;
+}
+
 class AuthService {
   AuthService({
     required this.config,
@@ -80,6 +91,9 @@ class AuthService {
     if (res.statusCode == 409) {
       throw Exception('That email is already registered. Try signing in.');
     }
+    if (res.statusCode == 429) {
+      throw Exception('Too many attempts — try again shortly.');
+    }
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception(_errorDetail(res) ?? 'Could not register (${res.statusCode})');
     }
@@ -102,10 +116,63 @@ class AuthService {
     if (res.statusCode == 401) {
       throw Exception('Invalid email or password.');
     }
+    if (res.statusCode == 429) {
+      throw Exception('Too many attempts — try again shortly.');
+    }
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception(_errorDetail(res) ?? 'Could not sign in (${res.statusCode})');
     }
     return _applyAuthResponse(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  /// Request a password reset code. Always succeeds with a generic message
+  /// when the request is well-formed (avoids email enumeration).
+  Future<PasswordResetRequestResult> requestPasswordReset({
+    required String email,
+  }) async {
+    final res = await http.post(
+      Uri.parse('${config.backendBaseUrl}/v1/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email.trim()}),
+    );
+    if (res.statusCode == 429) {
+      throw Exception('Too many attempts — try again shortly.');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception(
+        _errorDetail(res) ?? 'Could not start password reset (${res.statusCode})',
+      );
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return PasswordResetRequestResult(
+      message: (json['message'] as String?)?.trim() ??
+          'If an account exists for that email, a reset code has been sent.',
+      devResetCode: (json['devResetCode'] as String?)?.trim(),
+    );
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    final res = await http.post(
+      Uri.parse('${config.backendBaseUrl}/v1/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email.trim(),
+        'code': code.trim(),
+        'password': password,
+      }),
+    );
+    if (res.statusCode == 429) {
+      throw Exception('Too many attempts — try again shortly.');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception(
+        _errorDetail(res) ?? 'Could not reset password (${res.statusCode})',
+      );
+    }
   }
 
   Future<UserProfile> updateDisplayName(String displayName) async {

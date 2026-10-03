@@ -82,6 +82,24 @@ class Account(Base):
     display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     devices: Mapped[list[Device]] = relationship(back_populates="account")
+    password_resets: Mapped[list["PasswordReset"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
+
+
+class PasswordReset(Base):
+    """Short-lived hashed codes for forgot-password flow."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.id"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    account: Mapped[Account] = relationship(back_populates="password_resets")
 
 
 class Device(Base):
