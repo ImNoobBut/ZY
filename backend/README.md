@@ -73,18 +73,32 @@ Allowed admin command types: `setAlarmEnabled`, `setBedtime`, `setWakeTime`, `st
 - Entity types: `preferences`, `alarm`, `session`, `routine`.
 - Conflict rule: **last-write-wins** on `updatedAt`, then `writerDeviceId` tie-break.
 
-## Password reset email (optional SMTP)
+## Password reset email
 
-Forgot-password sends a 6-digit code that expires in 15 minutes. Without SMTP, the API still creates the code and **logs it** (local/dev). Set these env vars to email codes:
+Forgot-password sends a 6-digit code that expires in 15 minutes. If no mailer is configured (or send fails), the API still creates the code and **logs it**.
+
+**Render free tier blocks outbound SMTP** (`Network is unreachable` to `smtp.gmail.com:587`). Prefer an HTTPS API:
+
+### Recommended on Render: Brevo or Resend
 
 | Variable | Purpose |
 |----------|---------|
-| `SMTP_HOST` | SMTP server (required to enable sending) |
+| `BREVO_API_KEY` | [Brevo](https://www.brevo.com/) API key (verify sender email in their UI) |
+| `RESEND_API_KEY` | [Resend](https://resend.com/) API key (HTTPS; domain or `onboarding@resend.dev`) |
+| `EMAIL_FROM` / `SMTP_FROM` | From address (Brevo: your verified Gmail; Resend: verified domain) |
+| `APP_DISPLAY_NAME` | Brand in the email subject/body (default `Zy Sleep`) |
+
+Priority: Resend → Brevo → SMTP.
+
+### Optional SMTP (local / hosts that allow port 587)
+
+| Variable | Purpose |
+|----------|---------|
+| `SMTP_HOST` | SMTP server |
 | `SMTP_PORT` | Default `587` |
-| `SMTP_USER` / `SMTP_PASSWORD` | Auth when required by the host |
+| `SMTP_USER` / `SMTP_PASSWORD` | Auth when required |
 | `SMTP_FROM` | From address (defaults to `SMTP_USER`) |
 | `SMTP_STARTTLS` | Default `1`; set `0` to disable STARTTLS |
-| `APP_DISPLAY_NAME` | Brand in the email subject/body (default `Zy Sleep`) |
 | `RESET_CODE_PEPPER` | Extra secret mixed into code hashes |
 | `AUTH_DEV_EXPOSE_RESET_CODE` | When `1`, include `devResetCode` in the forgot-password JSON (local testing only) |
 

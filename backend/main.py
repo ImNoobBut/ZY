@@ -9,12 +9,15 @@ Dashboard: http://127.0.0.1:8081/
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import secrets
 import smtplib
 import time
 import uuid
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
@@ -227,12 +230,99 @@ def _hash_reset_code(account_id: str, code: str) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _smtp_configured() -> bool:
-    return bool((os.environ.get("SMTP_HOST") or "").strip())
+def _reset_email_body(*, code: str, display_name: str | None) -> tuple[str, str]:
+    """Return (subject, plain text body)."""
+    app_name = (os.environ.get("APP_DISPLAY_NAME") or "Zy Sleep").strip()
+    greeting = (display_name or "").strip() or "there"
+    subject = f"{app_name} password reset code"
+    body = (
+        f"Hi {greeting},\n\n"
+        f"Your {app_name} password reset code is: {code}\n\n"
+        f"It expires in 15 minutes. If you did not request this, you can ignore this email.\n"
+    )
+    return subject, body
 
 
-def _send_reset_email(*, to_email: str, code: str, display_name: str | None) -> bool:
-    """Send reset code via SMTP when configured. Returns True if sent."""
+def _http_json(
+    url: str,
+    *,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+) -> tuple[bool, str]:
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={**headers, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as res:
+            raw = res.read().decode("utf-8", errors="replace")
+            return 200 <= res.status < 300, raw
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {e.code}: {raw}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _send_via_resend(*, to_email: str, subject: str, body: str) -> bool:
+    """HTTPS API — works on Render free (SMTP ports are blocked)."""
+    key = (os.environ.get("RESEND_API_KEY") or "").strip()
+    if not key:
+        return False
+    from_addr = (
+        (os.environ.get("EMAIL_FROM") or os.environ.get("SMTP_FROM") or "").strip()
+        or "Zy Sleep <onboarding@resend.dev>"
+    )
+    ok, detail = _http_json(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {key}"},
+        payload={"from": from_addr, "to": [to_email], "subject": subject, "text": body},
+    )
+    if not ok:
+        log.error("Resend email failed for %s: %s", to_email, detail)
+    return ok
+
+
+def _send_via_brevo(*, to_email: str, subject: str, body: str) -> bool:
+    """HTTPS API (Brevo / Sendinblue) — verify a Gmail sender in their dashboard."""
+    key = (os.environ.get("BREVO_API_KEY") or "").strip()
+    if not key:
+        return False
+    from_email = (
+        (os.environ.get("EMAIL_FROM") or os.environ.get("SMTP_FROM") or "").strip()
+        or (os.environ.get("SMTP_USER") or "").strip()
+    )
+    if not from_email:
+        log.error("Brevo configured but EMAIL_FROM / SMTP_FROM is missing")
+        return False
+    # Allow "Name <email@x.com>" or bare email.
+    name = (os.environ.get("APP_DISPLAY_NAME") or "Zy Sleep").strip()
+    if "<" in from_email and ">" in from_email:
+        display, _, rest = from_email.partition("<")
+        email_only = rest.rstrip(">").strip()
+        name = display.strip() or name
+    else:
+        email_only = from_email
+    ok, detail = _http_json(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={"api-key": key, "accept": "application/json"},
+        payload={
+            "sender": {"name": name, "email": email_only},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "textContent": body,
+        },
+    )
+    if not ok:
+        log.error("Brevo email failed for %s: %s", to_email, detail)
+    return ok
+
+
+def _send_via_smtp(*, to_email: str, subject: str, body: str) -> bool:
+    """Direct SMTP — fine locally; often blocked on Render free (errno 101)."""
     host = (os.environ.get("SMTP_HOST") or "").strip()
     if not host:
         return False
@@ -240,18 +330,12 @@ def _send_reset_email(*, to_email: str, code: str, display_name: str | None) -> 
     user = (os.environ.get("SMTP_USER") or "").strip()
     password = os.environ.get("SMTP_PASSWORD") or ""
     from_addr = (os.environ.get("SMTP_FROM") or user or "noreply@localhost").strip()
-    app_name = (os.environ.get("APP_DISPLAY_NAME") or "Zy Sleep").strip()
-    greeting = (display_name or "").strip() or "there"
 
     msg = EmailMessage()
-    msg["Subject"] = f"{app_name} password reset code"
+    msg["Subject"] = subject
     msg["From"] = from_addr
     msg["To"] = to_email
-    msg.set_content(
-        f"Hi {greeting},\n\n"
-        f"Your {app_name} password reset code is: {code}\n\n"
-        f"It expires in 15 minutes. If you did not request this, you can ignore this email.\n"
-    )
+    msg.set_content(body)
 
     try:
         with smtplib.SMTP(host, port, timeout=20) as smtp:
@@ -263,9 +347,29 @@ def _send_reset_email(*, to_email: str, code: str, display_name: str | None) -> 
                 smtp.login(user, password)
             smtp.send_message(msg)
         return True
-    except Exception:
-        log.exception("Failed to send password reset email to %s", to_email)
+    except OSError as e:
+        log.error(
+            "SMTP unreachable for %s (%s). "
+            "Render free blocks outbound SMTP — use RESEND_API_KEY or BREVO_API_KEY instead.",
+            to_email,
+            e,
+        )
         return False
+    except Exception:
+        log.exception("Failed to send password reset email via SMTP to %s", to_email)
+        return False
+
+
+def _send_reset_email(*, to_email: str, code: str, display_name: str | None) -> bool:
+    """Prefer HTTPS providers (Resend/Brevo); fall back to SMTP for local/dev."""
+    subject, body = _reset_email_body(code=code, display_name=display_name)
+    if _send_via_resend(to_email=to_email, subject=subject, body=body):
+        return True
+    if _send_via_brevo(to_email=to_email, subject=subject, body=body):
+        return True
+    if _send_via_smtp(to_email=to_email, subject=subject, body=body):
+        return True
+    return False
 
 
 def _dev_expose_reset_code() -> bool:
@@ -554,13 +658,18 @@ def auth_forgot_password(
     )
     if not sent:
         log.warning(
-            "Password reset code for %s (SMTP not configured or send failed): %s",
+            "Password reset code for %s (email not sent — set RESEND_API_KEY or "
+            "BREVO_API_KEY on Render; SMTP is often blocked): %s",
             email,
             code,
         )
 
     if _dev_expose_reset_code():
-        generic = {**generic, "devResetCode": code, "emailDelivery": "smtp" if sent else "log"}
+        generic = {
+            **generic,
+            "devResetCode": code,
+            "emailDelivery": "sent" if sent else "log",
+        }
     return generic
 
 

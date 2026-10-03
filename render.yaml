@@ -16,7 +16,13 @@ services:
         sync: false
       - key: HOST
         value: 0.0.0.0
-      # Password-reset mail (set values in Render dashboard — do not commit secrets)
+      # Password-reset mail (HTTPS APIs — Render free blocks outbound SMTP)
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
