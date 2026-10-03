@@ -100,6 +100,28 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
     navigator.pop(true);
   }
 
+  bool _looksLikeScopeError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('library access') ||
+        lower.contains('insufficient') ||
+        lower.contains('connect spotify again');
+  }
+
+  Future<void> _reconnectForScopes() async {
+    final state = context.read<AppState>();
+    setState(() => busy = true);
+    try {
+      await state.disconnectSpotify();
+      await state.spotify.openAuthorizeInBrowser();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = '$e';
+        busy = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final canSelectContext = widget.contextUri != null && widget.contextUri!.isNotEmpty;
@@ -125,17 +147,32 @@ class _SpotifyBrowseScreenState extends State<SpotifyBrowseScreen> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Text(error!, style: const TextStyle(color: AppTheme.destructive)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(error!, style: const TextStyle(color: AppTheme.destructive)),
+                  if (_looksLikeScopeError(error!)) ...[
+                    const SizedBox(height: 12),
+                    PrimaryButton(
+                      label: 'Reconnect Spotify',
+                      busy: busy,
+                      onPressed: _reconnectForScopes,
+                    ),
+                  ],
+                ],
+              ),
             ),
           Expanded(
-            child: tracks.isEmpty && !busy
+            child: tracks.isEmpty && !busy && error == null
                 ? const Center(
                     child: Text(
                       'No tracks here.',
                       style: TextStyle(color: AppTheme.tertiaryText),
                     ),
                   )
-                : ListView.builder(
+                : tracks.isEmpty
+                    ? const SizedBox.shrink()
+                    : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
                     itemCount: tracks.length,
                     itemBuilder: (context, index) {

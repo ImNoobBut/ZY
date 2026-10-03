@@ -48,6 +48,9 @@ class SpotifyService {
           'user-read-private playlist-read-private playlist-read-collaborative '
           'user-library-read user-read-recently-played '
           'user-modify-playback-state user-read-playback-state',
+      // Force the consent screen so newly added scopes are actually granted
+      // (silent re-auth keeps the old token scopes).
+      'show_dialog': 'true',
       'code_challenge_method': 'S256',
       'code_challenge': challenge,
       'state': _pendingState,

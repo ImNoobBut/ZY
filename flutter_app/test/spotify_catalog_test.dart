@@ -58,10 +58,11 @@ void main() {
     expect(albumTracks, isNotEmpty);
   });
 
-  test('authorize URI includes library scopes', () async {
+  test('authorize URI includes library scopes and forces consent', () async {
     final uri = await spotify.buildAuthorizeUri();
     final scope = uri.queryParameters['scope'] ?? '';
     expect(scope, contains('user-library-read'));
     expect(scope, contains('user-read-recently-played'));
+    expect(uri.queryParameters['show_dialog'], 'true');
   });
 }

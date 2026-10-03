@@ -411,6 +411,24 @@ class _SpotifyScreenState extends State<SpotifyScreen> {
                   libraryHint!,
                   style: const TextStyle(color: AppTheme.secondaryText, height: 1.35),
                 ),
+                const SizedBox(height: 8),
+                SecondaryButton(
+                  label: 'Reconnect for library access',
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final state = context.read<AppState>();
+                          setState(() => busy = true);
+                          try {
+                            await state.disconnectSpotify();
+                            await state.spotify.openAuthorizeInBrowser();
+                          } catch (e) {
+                            if (mounted) setState(() => error = '$e');
+                          } finally {
+                            if (mounted) setState(() => busy = false);
+                          }
+                        },
+                ),
               ],
               ListTile(
                 contentPadding: EdgeInsets.zero,
